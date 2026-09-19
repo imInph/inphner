@@ -1,0 +1,34 @@
+{
+  "set": "pll",
+  "name": "PLL",
+  "note": "Standard algorithms. Every alg is verified by src/trainer/ll.test.ts: it must keep F2L intact and solve exactly the case it's named for (up to AUF).",
+  "groups": [
+    { "id": "edges", "name": "Edges only" },
+    { "id": "corners", "name": "Corners only" },
+    { "id": "adjacent", "name": "Adjacent corner swap" },
+    { "id": "diagonal", "name": "Diagonal corner swap" }
+  ],
+  "cases": [
+    { "id": "Ua", "group": "edges", "alg": "M2 U M U2 M' U M2" },
+    { "id": "Ub", "group": "edges", "alg": "M2 U' M U2 M' U' M2" },
+    { "id": "H", "group": "edges", "alg": "M2 U M2 U2 M2 U M2" },
+    { "id": "Z", "group": "edges", "alg": "M' U M2 U M2 U M' U2 M2" },
+    { "id": "Aa", "group": "corners", "alg": "x R' U R' D2 R U' R' D2 R2 x'" },
+    { "id": "Ab", "group": "corners", "alg": "x R2 D2 R U R' D2 R U' R x'" },
+    { "id": "E", "group": "corners", "alg": "x' R U' R' D R U R' D' R U R' D R U' R' D' x" },
+    { "id": "T", "group": "adjacent", "alg": "R U R' U' R' F R2 U' R' U' R U R' F'" },
+    { "id": "F", "group": "adjacent", "alg": "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R" },
+    { "id": "Ja", "group": "adjacent", "alg": "x R2 F R F' R U2 r' U r U2 x'" },
+    { "id": "Jb", "group": "adjacent", "alg": "R U R' F' R U R' U' R' F R2 U' R'" },
+    { "id": "Ra", "group": "adjacent", "alg": "R U' R' U' R U R D R' U' R D' R' U2 R'" },
+    { "id": "Rb", "group": "adjacent", "alg": "R2 F R U R U' R' F' R U2 R' U2 R" },
+    { "id": "Ga", "group": "adjacent", "alg": "R2 U R' U R' U' R U' R2 U' D R' U R D'" },
+    { "id": "Gb", "group": "adjacent", "alg": "R' U' R U D' R2 U R' U R U' R U' R2 D" },
+    { "id": "Gc", "group": "adjacent", "alg": "R2 U' R U' R U R' U R2 U D' R U' R' D" },
+    { "id": "Gd", "group": "adjacent", "alg": "R U R' U' D R2 U' R U' R' U R' U R2 D'" },
+    { "id": "V", "group": "diagonal", "alg": "R' U R' U' y R' F' R2 U' R' U R' F R F" },
+    { "id": "Y", "group": "diagonal", "alg": "F R U' R' U' R U R' F' R U R' U' R' F R F'" },
+    { "id": "Na", "group": "diagonal", "alg": "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'" },
+    { "id": "Nb", "group": "diagonal", "alg": "R' U R U' R' F' U' F R U R' F R' F' R U' R" }
+  ]
+}

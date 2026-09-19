@@ -1,0 +1,21 @@
+{
+  "name": "inphner",
+  "version": "1.0.0-pre",
+  "private": true,
+  "description": "Speedcubing timer and trainer in inphub's Glass design.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node tools/build.mjs && node tools/sync-xampp.mjs",
+    "watch": "node tools/build.mjs --watch",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "icons": "node tools/icons.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "chart.js": "4.5.1",
+    "cubing": "0.63.6",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

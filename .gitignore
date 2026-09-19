@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# local reference material (private screenshots of inphub)
+inphner-prompt/
+
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/

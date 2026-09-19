@@ -1,0 +1,11 @@
+{
+  "note": "Data-only shells: these sets appear in the trainer as 'needs case data' until each gets a data file like pll.json (cases with id, group and alg). Names and groups follow the usual conventions; no algorithms are bundled.",
+  "sets": [
+    { "id": "coll", "name": "COLL", "count": "42", "groups": ["H", "Pi", "U", "T", "L", "Sune", "Antisune", "O (corner swaps)"], "note": "Orient and permute the corners with edges oriented." },
+    { "id": "cmll", "name": "CMLL", "count": "42", "groups": ["O", "H", "Pi", "U", "T", "Sune", "Antisune", "L"], "note": "Roux: corners of the last layer, M-slice free." },
+    { "id": "zbll", "name": "ZBLL", "count": "472", "groups": ["T", "U", "L", "H", "Pi", "Sune", "Antisune"], "note": "Subsets by COLL case." },
+    { "id": "cll", "name": "2x2 CLL", "count": "42", "groups": ["O", "H", "Pi", "U", "T", "Sune", "Antisune", "L"], "note": "2x2: one-look last layer from a solved face." },
+    { "id": "eg1", "name": "EG-1", "count": "42", "groups": ["H", "Pi", "U", "T", "Sune", "Antisune", "L"], "note": "2x2 EG with an adjacent swap on the bottom." },
+    { "id": "eg2", "name": "EG-2", "count": "42", "groups": ["H", "Pi", "U", "T", "Sune", "Antisune", "L"], "note": "2x2 EG with a diagonal swap on the bottom." }
+  ]
+}

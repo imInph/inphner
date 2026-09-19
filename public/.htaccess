@@ -1,0 +1,8 @@
+# inphner: the shell must always revalidate so a new build's ?v= stamps are
+# seen at once. Everything it references is content-hashed or ?v=-stamped.
+<IfModule mod_headers.c>
+    <FilesMatch "^(index\.html|sw\.js|manifest\.webmanifest)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+DirectoryIndex index.html

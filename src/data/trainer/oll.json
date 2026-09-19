@@ -1,0 +1,14 @@
+{
+  "set": "oll",
+  "name": "OLL",
+  "note": "All 57 cases are enumerated from the orientation patterns (src/trainer/ll.ts), so every case exists and is distinct. Only the cases below carry their standard number and an algorithm the author is certain of; each is verified by src/trainer/ll.test.ts to orient exactly its pattern. The rest are unnamed slots grouped by edge shape, for the owner to fill in (number + alg).",
+  "named": [
+    { "id": "OLL 21", "name": "H", "alg": "R U2 R' U' R U R' U' R U' R'" },
+    { "id": "OLL 22", "name": "Pi", "alg": "R U2 R2 U' R2 U' R2 U2 R" },
+    { "id": "OLL 23", "name": "Headlights", "alg": "R2 D' R U2 R' D R U2 R" },
+    { "id": "OLL 24", "name": "Chameleon", "alg": "r U R' U' r' F R F'" },
+    { "id": "OLL 25", "name": "Bowtie", "alg": "F' r U R' U' r' F R" },
+    { "id": "OLL 26", "name": "Antisune", "alg": "R U2 R' U' R U' R'" },
+    { "id": "OLL 27", "name": "Sune", "alg": "R U R' U R U2 R'" }
+  ]
+}
