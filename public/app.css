@@ -405,6 +405,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     transition: background-color .15s, color .15s, transform .35s var(--spring);
     -webkit-tap-highlight-color: transparent;
 }
+
+/* A backup is overdue: a quiet marker on Settings, not a nag. */
+.nav-item .nav-dot { margin-left: auto; }
 .nav-item .ico { opacity: .9; transition: color .15s; }
 .nav-item:hover { background: var(--fill-1); color: var(--text); }
 .nav-item:active { transform: scale(.97); }

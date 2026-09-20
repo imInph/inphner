@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # inphner
 
 A speedcubing timer, session tracker, stats suite and algorithm trainer ("csTimer rebuilt
@@ -13,14 +17,30 @@ the same Glass design system, token for token.
 
 ## Working agreement
 
-- Build in Part C's order, **one step at a time**. After each step, check it in the browser at
-  desktop size (1378×862, the screenshots' size) and at 375px. (After step 1 the owner said to
-  carry on through the steps without waiting for approval: report progress, don't block.)
+Part C's build order is finished and shipped as **v1.0.0**; work now is fixes, additions and the
+outstanding acceptance pass (see Release status). The rules that still hold:
+
+- Check every change in the browser at desktop size (1378×862, the screenshots' size) **and** at
+  375px before calling it done.
 - Use Part B's token values exactly. Don't restyle, "modernise" or invent colours, radii, accents
   or wallpapers.
 - **Don't invent cubing algorithms.** If unsure of an alg, leave it `""` for the owner to fill in.
-- The stats engine's unit tests come before its UI; never call a step done with failing tests.
+  The same goes for hardware protocols: use a library or leave it marked untested, never guess.
+- Pure logic gets its tests before its UI; never call a change done with failing tests.
 - No commits or pushes unless asked.
+
+### The repo
+
+`git@github.com:imInph/inphner.git`, branch `main`, MIT, owner **imInph**
+<aardacanbulat@gmail.com>. Two things about it that bite:
+
+- **The build output is committed** (`public/js/`, `public/sw.js`) so the app can be served
+  straight from `public/` with no install step. That means **`npm run build` before committing any
+  source change**, or the committed build goes stale against the source it claims to be.
+- `.gitattributes` marks `public/js/**` as `linguist-generated=true` so GitHub's language bar
+  shows TypeScript rather than the bundles. Don't remove it when touching build output.
+- `inphner-prompt/` is **git-ignored on purpose**: the inphub screenshots in it show the owner's
+  real financial data. It stays local.
 
 ### Decisions made with the owner (they override the spec text)
 
@@ -52,7 +72,33 @@ npm run icons      # regenerate public/icons/* (qlmanage rasterises the SVG)
 ```
 
 Open `http://localhost/inphner/` (Apache must be running in XAMPP). The console logs
-`[inphner] v1.0.0 ready` on a good boot.
+`[inphner] v1.0.0 ready` on a good boot. Node 26+ (native TS type stripping) and npm 11.
+
+Dependencies, all dev-only and all lazily loaded at runtime: **cubing.js** (official random-state
+scrambles, the 3x3 solver behind trainer setups, `<twisty-player>`), **Chart.js** (the Stats view),
+**gan-web-bluetooth** (the GAN protocol — hardware fact, not something to reconstruct),
+**esbuild** (bundle + the two worker bundles), **typescript** (type checking only).
+
+### Tests cost session budget — be proportionate
+
+There are 165 tests and `npm test` prints a line for each. Running the whole suite after every
+small edit is what burns a session's usage before the actual work gets done; the same goes for
+writing tests nobody needs. While iterating, run the one file you touched, and filter the output:
+
+```bash
+node --test src/stats/core.test.ts          # one file
+node --test --test-name-pattern "aoN"       # one test by name
+npm test 2>&1 | grep -E "^ℹ (pass|fail)"    # the whole suite, two lines of output
+```
+
+Run the full suite once before calling a change done, not between every edit. Two files are slow
+because they build search tables: `src/tools/xcross.test.ts` (~9 s) and `src/tools/solve.test.ts`
+(~4 s) — never put those in a loop. `src/pwa/sw.test.ts` runs the **built** `public/sw.js`, so
+`npm run build` has to come first after touching `src/sw.ts`.
+
+Where the coverage belongs: the pure maths earns it — stats, the solvers, the memo tracer, the
+scramble simulators, the bundled algs — because those are why the numbers can be trusted. UI glue
+mostly doesn't. A test that restates what the code already says is a cost with no return.
 
 ## Layout
 
@@ -70,6 +116,7 @@ src/
                    pwa/register.ts registers it and offers the update
   router.ts        hash routes with params (#sessions?focus=<id>); views read params, never consume them
   appearance.ts    PURE: appearance types, allowlists, parse/serialize, URL sanitiser, greeting (+ tests)
+  backup-nudge.ts  PURE: when to remind someone their solves live only in this browser (+ tests)
   prefs.ts         PURE parsePrefs + a tiny live store (localStorage 'inphner.prefs'; event 'inphner:prefs')
   theme.ts         applies theme/appearance to <html>, preview vs save, inphub fallback
   types.ts         Solve / Session (+ Multi-BLD `multi`, FMC moves stored as timeMs = moves × 1000)
@@ -82,6 +129,10 @@ src/
                    · live.ts (one engine per session, synced via store.sessionRev in O(1))
                    · special.ts (PURE FMC notation/count, Multi-BLD points/rank)
   events.ts        every event: id, names, group, icon, scrambler kind
+  io/              cstimer.ts (csTimer .txt in and out) · csv.ts · backup.ts (full inphner JSON)
+  pwa/             strategy.ts (PURE fetch routing) · register.ts (registration + update toast)
+  trainer/         ll.ts · f2l.ts · cases.ts · diagram.ts · scramble.ts · select.ts · store.ts
+                   (see Trainer: case identities are enumerated, algs are test-verified)
   timer/           engine.ts (PURE state machine, injected clock/scheduler) · format.ts (PURE WCA
                    formatting + typing parser) · sounds.ts (beep / voice alerts)
                    · stackmat.ts (PURE UART + packet decoding) · stackmat-source.ts (mic + worklet)
@@ -100,9 +151,10 @@ src/
                    · shortcuts.ts (the ? sheet) · timer.ts · scramble-card.ts · fmc.ts
                    · solve-list.ts (virtualised) · solve-modal.ts · average-modal.ts
                    · session-picker.ts · sessions.ts · stats.ts · charts.ts (Chart.js helpers)
-                   · settings.ts (+ settings-prefs.ts) · tools.ts · placeholder.ts
+                   · settings.ts (+ settings-prefs.ts) · data-io.ts (import/export UI)
+                   · trainer.ts · algorithms.ts · tools.ts · placeholder.ts
   ui/sortable.ts   drag-to-reorder (port of inphub's sortable)
-  ui/popover.ts    glass popover under a trigger (event picker; session picker in step 4)
+  ui/popover.ts    glass popover under a trigger (the event and session pickers)
 tools/             build.mjs · sync-xampp.mjs · icons.mjs · event-icons.mjs
 public/.htaccess   index.html / sw.js / manifest are served no-cache (everything else is hashed)
 ```
@@ -333,12 +385,30 @@ Quick self-check in the console:
 `getComputedStyle(document.body).backgroundColor` → `rgba(0, 0, 0, 0)`;
 `document.documentElement.scrollWidth <= innerWidth` at 375px.
 
-## Release status (v1.0.0)
+## Hosting and the backup reminder (v1.1.0)
+
+- **GitHub Pages** serves `public/` on every push to main (`.github/workflows/pages.yml`). It
+  publishes the folder **as committed** and never rebuilds, so `npm run build` before committing
+  is what keeps the live site honest. Live at `https://iminph.github.io/inphner/`. Every path in
+  `index.html`, the manifest and the service-worker registration is **relative**, which is why the
+  app works unchanged at `/inphner/` on XAMPP and at the Pages subpath.
+- **`navigator.storage.persist()`** is asked for once per boot (`db/idb.ts`, called from
+  `initStore`); `persisted()` short-circuits the re-ask. The answer is kept in `store.ts`
+  (`storageProtection()` / `storageProtectedNow()`) because it decides both the Data card's
+  wording and how soon a backup counts as overdue.
+- **`backup-nudge.ts` is PURE and tested.** Solves live in one browser and nowhere else, so the
+  reminder has two volumes: an amber dot on the Settings nav item whenever a backup is overdue,
+  and a toast at most once every 7 days. It needs ≥ 50 solves (below that there isn't enough to
+  lose to justify interrupting anyone), waits 6 s after boot, and **polls until `timerBusy()` and
+  `trainerBusy()` are both false** — the reminder must never land on a solve. A browser that
+  refused to protect the data drops "overdue" from 30 days to 7.
+
+## Release status (v1.1.0)
 
 Version label in three places, keep them in step: the sidebar chip (index.html), the console
 "ready" line (`VERSION` in main.ts) and package.json.
 
-**Done:** steps 1–11 (see Build status). 157 unit tests (`npm test`), each step checked in the
+**Done:** steps 1–11 (see Build status). 165 unit tests (`npm test`), each step checked in the
 browser pane at desktop size and 375px.
 
 **Next:**

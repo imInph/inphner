@@ -1,4 +1,4 @@
-import{a as R}from"./chunk-2F3GERFI.js";import{l as B,m as D}from"./chunk-33K7B2ZP.js";import{c as A}from"./chunk-PGV3QAIX.js";import"./chunk-MXUW4ABC.js";import"./chunk-FY3BTKY4.js";var U=null;async function h(){return U??=e()}async function e(){return R(await B.kpuzzle(),`SubgroupSizes 24 21 18 15 12 9 6
+import{a as R}from"./chunk-2F3GERFI.js";import{l as B,m as D}from"./chunk-TVSZI2UX.js";import{c as A}from"./chunk-PGV3QAIX.js";import"./chunk-MXUW4ABC.js";import"./chunk-FY3BTKY4.js";var U=null;async function h(){return U??=e()}async function e(){return R(await B.kpuzzle(),`SubgroupSizes 24 21 18 15 12 9 6
 
 Alg F
 Alg F2
@@ -1773,4 +1773,4 @@ Alg U' B L U L B' U' L'
 
 Alg U R' U' L B R' B' R
 Alg R' U' R U B' U' B L`)}export{h as cachedData222,a as cachedMegaminxKPuzzleWithoutMO,P as cachedSGSDataMegaminx,o as sgsDataPyraminx,b as sgsDataPyraminxFixedOrientation,d as sgsDataSkewb,G as sgsDataSkewbFixedCorner,m as skewbKPuzzleWithoutMOCached};
-//# sourceMappingURL=search-dynamic-sgs-side-events-WORUZVF5-W43PIAFL.js.map
+//# sourceMappingURL=search-dynamic-sgs-side-events-WORUZVF5-ULT3WOP5.js.map

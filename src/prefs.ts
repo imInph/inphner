@@ -25,6 +25,8 @@ export interface Prefs {
   strip: number[];
   dnfInMean: boolean;
   lastExportAt: number;
+  /** When the backup reminder last appeared. */
+  lastNudgeAt: number;
   /** Moves in a '3x3 · custom length' scramble. */
   customLength: number;
   /** Cubes in a Multi-BLD attempt (scrambles generated per attempt). */
@@ -45,6 +47,7 @@ export const DEFAULT_PREFS: Prefs = {
   strip: [5, 12, 100],
   dnfInMean: false,
   lastExportAt: 0,
+  lastNudgeAt: 0,
   customLength: 25,
   multiCubes: 5,
 };
@@ -98,6 +101,7 @@ export function parsePrefs(raw: string | null): Prefs {
     strip: strip.length ? strip : d.strip,
     dnfInMean: bool(o.dnfInMean, d.dnfInMean),
     lastExportAt: num(o.lastExportAt, 0, 0, 8.64e15),
+    lastNudgeAt: num(o.lastNudgeAt, 0, 0, 8.64e15),
     customLength: Math.round(num(o.customLength, d.customLength, 1, 100)),
     multiCubes: Math.round(num(o.multiCubes, d.multiCubes, 2, 60)),
   };

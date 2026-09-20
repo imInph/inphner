@@ -24,7 +24,10 @@ import { leaveTrainer, renderTrainer, trainerBusy } from './views/trainer.ts';
 import { renderAlgorithms } from './views/algorithms.ts';
 import { initTimer, leaveTimer, renderTimer, timerBusy } from './views/timer.ts';
 import { registerServiceWorker } from './pwa/register.ts';
-import { currentSession, initStore } from './store.ts';
+import { countAll } from './db/idb.ts';
+import { prefs, setPrefs } from './prefs.ts';
+import { backupOverdue, nudgeMessage, shouldNudge, type BackupState } from './backup-nudge.ts';
+import { currentSession, initStore, storageProtection } from './store.ts';
 import { warm } from './scramble/generator.ts';
 import { openSessionPicker, renderSessionPill } from './views/session-picker.ts';
 
@@ -39,7 +42,7 @@ declare global {
   }
 }
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 /* ------------------------------------------------------------------ sidebar */
 
@@ -260,8 +263,74 @@ async function boot(): Promise<void> {
   activate(parseRoute());
 
   registerServiceWorker();
+  void watchBackups();
   window.__inphnerLoaded = true;
   console.info(`[inphner] v${VERSION} ready`);
+}
+
+/* ------------------------------------------------------------ backups */
+
+/**
+ * The backup reminder. Solves live in this browser and nowhere else, so a
+ * cleared cache or an evicted database loses the lot. A dot on Settings says
+ * so quietly and permanently; the toast says it out loud at most once a week,
+ * and never over a solve — see backup-nudge.ts for when.
+ */
+let solveCount = 0;
+
+async function watchBackups(): Promise<void> {
+  try {
+    solveCount = await countAll('solves');
+  } catch {
+    return; // No database, nothing to protect.
+  }
+  const protectedStorage = await storageProtection();
+  const read = (): BackupState => {
+    const p = prefs();
+    return { now: Date.now(), lastExportAt: p.lastExportAt, lastNudgeAt: p.lastNudgeAt, solves: solveCount, protectedStorage };
+  };
+
+  paintBackupDot(backupOverdue(read()));
+  // An export (or an import) changes the answer; repaint without recounting.
+  window.addEventListener('inphner:prefs', () => paintBackupDot(backupOverdue(read())));
+  window.addEventListener('inphner:solves', () => { solveCount++; });
+
+  const state = read();
+  if (!shouldNudge(state)) return;
+  await whenIdle();
+  if (!shouldNudge(read())) return; // Backed up while we waited.
+
+  setPrefs({ lastNudgeAt: Date.now() });
+  toast(nudgeMessage(state), {
+    action: {
+      label: 'Back up',
+      run: () => { void import('./views/data-io.ts').then((m) => m.handleDataAction('data-export')); },
+    },
+  });
+}
+
+/** A warning dot on the Settings item, shown whenever a backup is overdue. */
+function paintBackupDot(on: boolean): void {
+  const item = document.querySelector<HTMLElement>('.nav-item[data-view="settings"]');
+  if (!item) return;
+  const existing = item.querySelector('.nav-dot');
+  if (!on) { existing?.remove(); return; }
+  if (existing) return;
+  const dot = document.createElement('span');
+  dot.className = 'nav-dot dot warn';
+  dot.title = 'A backup is due';
+  item.appendChild(dot);
+}
+
+/** Settle after boot, and never interrupt a solve or a drill. */
+function whenIdle(): Promise<void> {
+  return new Promise((resolve) => {
+    const tick = (): void => {
+      if (timerBusy() || trainerBusy()) setTimeout(tick, 2000);
+      else resolve();
+    };
+    setTimeout(tick, 6000);
+  });
 }
 
 void boot();

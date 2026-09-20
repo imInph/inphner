@@ -80,12 +80,27 @@ export function initStore(): Promise<void> {
     const live = orderedSessions();
     currentId = live.find((s) => s.id === saved)?.id ?? live[0]?.id ?? sessions[0]!.id;
     await loadSolves(currentId);
-    void persist();
+    protection = persist().then((ok) => (protectedNow = ok));
   })();
   return ready;
 }
 
 /* ---------------------------------------------------------------- sessions */
+
+/* ---------------------------------------------------------------- storage */
+
+let protectedNow = false;
+let protection: Promise<boolean> = Promise.resolve(false);
+
+/** Resolves once the browser has answered our request not to evict the data. */
+export function storageProtection(): Promise<boolean> {
+  return protection;
+}
+
+/** The last answer, for code that renders synchronously. */
+export function storageProtectedNow(): boolean {
+  return protectedNow;
+}
 
 export function allSessions(): readonly Session[] {
   return sessions;

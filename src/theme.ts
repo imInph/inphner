@@ -45,11 +45,6 @@ export function savedAppearance(): Appearance {
   return parseAppearance(read(APPEARANCE_KEY) ?? (sameOriginAsInphub() ? read(INPHUB_APPEARANCE_KEY) : null));
 }
 
-/** Whether the current look was borrowed from inphub (nothing saved by inphner yet). */
-export function borrowedFromInphub(): boolean {
-  return read(APPEARANCE_KEY) === null && sameOriginAsInphub() && read(INPHUB_APPEARANCE_KEY) !== null;
-}
-
 /** What is on screen now (may be an unsaved preview). */
 export function currentTheme(): Theme {
   return parseTheme(root.getAttribute('data-theme'));

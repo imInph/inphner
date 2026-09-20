@@ -10,7 +10,7 @@ import {
   ACCENTS, ACCENT_SWATCH, WALLPAPERS, cssUrl, safeWallpaperUrl, wallpaperHasPalette,
 } from '../appearance.ts';
 import {
-  applyAppearance, applyTheme, borrowedFromInphub, currentAppearance, currentTheme,
+  applyAppearance, applyTheme, currentAppearance, currentTheme,
   revertToSaved, savedAppearance, savedTheme,
 } from '../theme.ts';
 import { esc, onAction } from '../ui/dom.ts';
@@ -91,7 +91,6 @@ function appearanceCard(d: Draft): string {
           <span>Reduce transparency</span></label>
       </div>
       <div class="settings-actions">
-        ${borrowedFromInphub() && !isDirty() ? `<small class="text-dim" style="margin-right:auto;align-self:center">Matching inphub's look. Save to keep it for inphner.</small>` : ''}
         <button type="button" class="btn btn-ghost" data-action="revert" ${isDirty() ? '' : 'disabled'}>Revert</button>
         <button type="button" class="btn btn-primary" data-action="save">${icon('check', 16)}Save</button>
       </div>

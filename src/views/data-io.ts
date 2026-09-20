@@ -16,6 +16,7 @@ import { prefs, setPrefs } from '../prefs.ts';
 import {
   currentSession, eraseEverything, everything, importIntoSession, importSessions, loadSolves, mergeBackup,
   orderedSessions, removeSessions, sessionLabel, deleteSolves,
+  storageProtectedNow,
 } from '../store.ts';
 import { localDay } from '../stats/chart-data.ts';
 import { esc } from '../ui/dom.ts';
@@ -264,7 +265,10 @@ export function dataCard(): string {
   return `
     <section class="card" data-role="data">
       <div class="card-head"><h3>Data</h3><small>Everything lives in this browser.</small></div>
-      <p class="${backupDue() ? 'text-warn' : 'text-dim'}" style="margin:0 0 12px">${esc(lastExportText())}</p>
+      <p class="${backupDue() ? 'text-warn' : 'text-dim'}" style="margin:0 0 6px">${esc(lastExportText())}</p>
+      <p class="${storageProtectedNow() ? 'text-dim' : 'text-warn'}" style="margin:0 0 12px">${esc(storageProtectedNow()
+        ? "This browser has marked your solves as protected, so they won't be cleared to free up space."
+        : "This browser hasn't promised to keep your solves, so they can be cleared to free up space. Adding inphner to your home screen usually earns that promise.")}</p>
       <div class="data-actions">
         <button type="button" class="btn btn-sm" data-action="data-export">Export / back up…</button>
         <button type="button" class="btn btn-sm" data-action="data-import">Import…</button>

@@ -120,11 +120,31 @@ export async function clearAll(): Promise<void> {
   await done(tx);
 }
 
-/** Ask the browser not to evict our data under storage pressure. */
+/** Whether the browser has already promised to keep our data. */
+export async function persisted(): Promise<boolean> {
+  try {
+    return (await navigator.storage?.persisted?.()) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ask the browser not to evict our data under storage pressure. Browsers grant
+ * this to an installed app; a plain tab may be refused, which is exactly when
+ * the backup reminder matters (see backup-nudge.ts).
+ */
 export async function persist(): Promise<boolean> {
   try {
+    if (await persisted()) return true;
     return (await navigator.storage?.persist?.()) ?? false;
   } catch {
     return false;
   }
+}
+
+/** How many records a store holds, without reading any of them. */
+export async function countAll(store: StoreName): Promise<number> {
+  const db = await openDb();
+  return promisify(db.transaction(store).objectStore(store).count());
 }
