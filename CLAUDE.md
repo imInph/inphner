@@ -44,7 +44,7 @@ the same Glass design system, token for token.
 ## Commands
 
 ```bash
-npm run build      # tsc (typecheck) → esbuild bundle → stamp ?v= hashes → sync to XAMPP
+npm run build      # tsc (typecheck) → esbuild bundle → stamp ?v= hashes → build sw.js → sync
 npm run watch      # rebuild + sync on every change in src/ or public/
 npm test           # node --test on src/**/*.test.ts (Node 26 strips types natively)
 npm run typecheck  # tsc only
@@ -61,9 +61,13 @@ public/            what gets served (and synced to htdocs/inphner)
   index.html       the shell + the no-flash head script; ?v= stamps are rewritten by the build
   app.css          the whole design system + components (one file, custom properties)
   js/              build output (main.js + content-hashed chunks/); never edit by hand
+  sw.js            build output from src/sw.ts (build hash + precache lists injected)
+  manifest.webmanifest   PWA manifest (relative start_url/scope, so any path works)
   icons/           favicon.svg, PNGs (32/180/512), maskable variants
 src/
   main.ts          boot: sidebar, router, drawer, global inline-onclick handlers, hotkeys, clock
+  sw.ts            the service worker (see Offline); pwa/strategy.ts is PURE and tested,
+                   pwa/register.ts registers it and offers the update
   router.ts        hash routes with params (#sessions?focus=<id>); views read params, never consume them
   appearance.ts    PURE: appearance types, allowlists, parse/serialize, URL sanitiser, greeting (+ tests)
   prefs.ts         PURE parsePrefs + a tiny live store (localStorage 'inphner.prefs'; event 'inphner:prefs')
@@ -80,15 +84,23 @@ src/
   events.ts        every event: id, names, group, icon, scrambler kind
   timer/           engine.ts (PURE state machine, injected clock/scheduler) · format.ts (PURE WCA
                    formatting + typing parser) · sounds.ts (beep / voice alerts)
+                   · stackmat.ts (PURE UART + packet decoding) · stackmat-source.ts (mic + worklet)
+                   · stackmat-worklet.ts (built to js/stackmat-worklet.js) · phases.ts (PURE
+                   cross/F2L/OLL/PLL detection) · smartcube.ts (GAN over Web Bluetooth)
   scramble/        moves.ts (PURE random moves, LSE, tokenising) · nxn.ts (PURE N×N sticker simulator)
                    · states.ts (PURE random 3x3 subset states) · net.ts (PURE SVG net)
                    · generator.ts (cubing.js, lazy, one-ahead prefetch per event)
+  tools/           cube.ts (PURE piece-level 3x3, move tables derived from nxn.ts) · solve.ts
+                   (PURE optimal cross / EOLine / first block) · memo.ts (PURE Speffz + tracing)
+                   · metronome.ts · solver-worker.ts (built to js/solver-worker.js)
   data/            event-icons/*.svg (vendored, MIT) → event-icons.ts (generated)
   ui/              dom.ts (esc, onAction, isTyping) · icons.ts · toast.ts · modal.ts
-  views/           registry.ts (views, hotkeys, tints) · timer.ts · scramble-card.ts · fmc.ts
+                   · fuzzy.ts (PURE match/rank behind the palette) · palette.ts (the K overlay)
+  views/           registry.ts (views, hotkeys, tints) · commands.ts (what the palette lists)
+                   · shortcuts.ts (the ? sheet) · timer.ts · scramble-card.ts · fmc.ts
                    · solve-list.ts (virtualised) · solve-modal.ts · average-modal.ts
                    · session-picker.ts · sessions.ts · stats.ts · charts.ts (Chart.js helpers)
-                   · settings.ts (+ settings-prefs.ts) · placeholder.ts
+                   · settings.ts (+ settings-prefs.ts) · tools.ts · placeholder.ts
   ui/sortable.ts   drag-to-reorder (port of inphub's sortable)
   ui/popover.ts    glass popover under a trigger (event picker; session picker in step 4)
 tools/             build.mjs · sync-xampp.mjs · icons.mjs · event-icons.mjs
@@ -109,6 +121,15 @@ namespaces (`erasableSyntaxOnly`, which Node's type stripping requires).
 - `timerBusy()` (armed, inspecting or running) disables every other shortcut; main.ts checks it.
 - `paint()` sets colours by class swap only; `.time` transitions **only** `transform`.
 - `<html data-view="timer">` turns off overscroll (pull-to-refresh) while the timer is shown.
+- **Phone layout is measured against the real viewport.** `main.ts` publishes the topbar's height
+  as `--topbar-h` (ResizeObserver: safe-area insets change it), and at ≤768px the view is capped at
+  `100dvh - var(--topbar-h)` with a `vh` fallback for older iOS. Without the cap the stage took its
+  content's height, the page scrolled, and the fixed bottom sheet covered the time. The sheet's
+  peek is `clamp(150px, 30dvh, 350px)` rather than a flat 350px, which on a short screen (an iPhone
+  with Safari's toolbars up) is what pushed the time against the scramble.
+- **The post-solve row is absolutely positioned** under the time. Reserving 62px for a row that is
+  usually absent pushed the time well above centre; out of flow, the time is centred *and* landing
+  a solve still shifts nothing.
 - Browser-pane testing: when the pane is hidden, rAF and CSS transitions don't run. Verify
   colours/classes synchronously, and check running-time rendering with the pane visible.
 
@@ -133,8 +154,116 @@ namespaces (`erasableSyntaxOnly`, which Node's type stripping requires).
   rate, staleness, learning status; unseen first) or "each case once per round" (deck).
 - Persistence (`trainer/store.ts`): IndexedDB `meta` keys `trainer:stats`, `trainer:algs`,
   `trainer:custom`, `trainer:prefs`; debounced, flushed on pagehide.
+- **Marking a mistake asks first and stays put** (owner's call). M is easy to catch mid-drill, so
+  the first press turns the button into "Log a mistake?" (Esc or six seconds cancels) and only the
+  second logs it. Logging no longer advances to the next case — being moved off the case you are
+  drilling was the worse half of the bug — and the button becomes "Mistake logged · undo". The
+  revert uses `run.beforeSolve`, the stats as they were *before* the attempt, so a fast mis-hit
+  can't leave a phantom best behind; undo restores `run.beforeMistake`.
+- **Recognition mode keeps one layout across all three phases:** the diagram's box is always
+  there (`visibility`, never `height: 0`) and the question/answer sit in `.recog-below`, which has
+  a min-height. Before that the options jumped up when the picture hid and back down when it
+  returned, and the picture itself was a 110px drawing sitting left-aligned in a 160px box, off
+  the axis everything else was centred on.
 - The trainer's timer is a second `TimerEngine`; keys reach it through `setKeyDelegate()` in
   views/timer.ts so it shares the double registration + dedupe. `trainerBusy()` blocks shortcuts.
+
+## Command palette (`k` / Cmd-K)
+
+- `main.ts` lazily imports `ui/palette.ts` + `views/commands.ts` on the first open (they pull in
+  the import/export views), and refuses while `timerBusy()` or `trainerBusy()`.
+- `views/commands.ts` rebuilds the list every time it opens, so labels state what will happen
+  ("Turn inspection off for 3x3"). Sections: Commands · Go to · Algorithms · Sessions · Events.
+  Switching to an event uses its most recent session, or creates one.
+- `ui/fuzzy.ts` is PURE and tested: a dynamic-programming subsequence match (greedy matching
+  spends the "c" of "csv" on "cstimer" and then can't find "csv"). A run of characters scores far
+  above the initials of scattered words. `fuzzyFields` matches the label first, then
+  label + keywords at a penalty; **subtitles are never searched** (half of them are boilerplate).
+  Rows below `FLOOR × query length` are dropped, and with a query the section holding the best row
+  comes first.
+- The overlay's tint + blur are on `.palette-overlay::before` (design rule 3). At ≤768px it goes
+  full screen, so the input row carries a close button (there is no outside left to tap).
+
+## Offline (PWA)
+
+- `src/sw.ts` → `public/sw.js`, built by `tools/build.mjs` as a separate iife bundle with three
+  values injected: `__BUILD__` (a hash of main.js + app.css + every chunk name), `__SHELL__` and
+  `__CHUNKS__`. One cache per build (`inphner-<build>`); `activate` deletes our older ones only.
+- **Install precaches the shell** (index.html, app.css, js/main.js, the manifest, the icons).
+  The rest — cubing.js's scramblers and worker, Chart.js, the trainer, ~3 MB — is warmed when
+  the page reports itself idle (`pwa/register.ts` posts `{type:'warm'}`), because timing a solve
+  offline needs a scrambler and those megabytes must not compete with first paint.
+- Lookups use `ignoreSearch: true`, so `app.css?v=<hash>` hits the precached `app.css`.
+- Shell documents are network-first (a new build is seen at once), everything else cache-first
+  (it's content-hashed). A 404/500 counts as a failure, so a half-deployed build falls back to
+  the cached copy.
+- **An update never takes over silently:** the new worker waits, `register.ts` shows the
+  "A new version of inphner is ready · Reload" toast, and only then posts `skip-waiting`.
+  Reloading mid-solve would be the one unforgivable bug.
+- **Testing:** the browser pane cannot register a service worker at all (it fails the same way
+  for a script that doesn't exist), so `src/pwa/sw.test.ts` runs the **built** `public/sw.js` in
+  `node:vm` with a fake CacheStorage and a fetch that can be switched off: install → warm →
+  activate → offline reload. Acceptance item 9 still wants one real offline reload in a browser.
+
+## Tools, Stackmat and smart cube (step 11)
+
+- **`tools/cube.ts`** is a second 3x3 model, piece-level and fast, for searching. Its move tables
+  are **read from `scramble/nxn.ts` at load**, never typed in, and a test compares every turn and
+  a long scramble against it. `cubeFromFacelets()` reads the Kociemba string smart cubes speak;
+  it is checked against gan-web-bluetooth's own documented "F R" example.
+- **`tools/solve.ts`** answers with the **optimal** solution from a breadth-first table, not IDA*
+  (the spec suggested IDA*; a table over these tiny state spaces is simpler and exact). Cross
+  ~70 ms to build, EOLine ~200 ms, Roux first block ~4 s — all lazy, inside the worker. Every
+  test checks the answer by applying it to the cube, never against a remembered string.
+- **XCross** (cross + one F2L pair) is the exception: six tracked pieces is 24^6 states, far too
+  many for a table, so `xcrossSolver()` is **IDA\*** bounded by two 24^5 tables that each leave one
+  piece out (cross + the pair's corner, cross + the pair's edge). Each is exact for its own
+  subproblem, so the larger is an admissible bound and the answer stays optimal. ~3.9 s to build
+  both, then **under 1 ms** per scramble. It always solves the **front-right** slot, so the four
+  F2L slots come from the four y rotations the caller passes — the same trick as the front.
+  There is no XXCross: eight pieces puts the optimal search out of reach in a browser.
+- **The solvers always solve the D layer, so every hint carries a rotation** (`tools/orient.ts`).
+  A scramble is applied in the WCA orientation (white top, green front), which leaves **yellow**
+  on the bottom — a bare cross solution is unusable and, worse, the wrong colour. The Tools card
+  has a cross-colour picker (six colours, or "Any" = colour neutral, which tries all six and
+  keeps the shortest) and prints the answer as `x2 F2 R2 B' R F D'` with "white on the bottom,
+  blue in front" beside it. The cross is the same whichever way the cube faces; EOLine's line and
+  Roux's block are not, so those also try the four y turns. `TO_BOTTOM` is verified against the
+  simulator, and a test applies `scramble + rotation + solution` to real stickers and checks the
+  D face shows the colour that was asked for, with every cross edge matched to its centre.
+  With "Any" the worker returns **one option per colour**, all six shown with their move counts
+  (before that, ties went silently to whichever came first in the list, which always looked like
+  white). The scramble boxes are wrapping, auto-growing textareas, not single-line inputs: a scramble you
+  have to scroll sideways to read is one you will apply wrongly (that is exactly how a correct
+  cross hint first looked wrong). Typing in them repaints only the region that depends on them
+  (`paintHints()`, `#memo-body`), never the field itself.
+  Each hint also draws **two nets** ("now" after the rotation, "after" once the moves are done),
+  so a hint can be checked against the cube in hand instead of taken on trust — and if the "now"
+  net doesn't match, the scramble or the holding is wrong, not the solution. The state after
+  `scramble x2 F2 R2 B' R F D'` was also rendered independently by cubing.js's own
+  `<twisty-player>` and agrees with ours sticker for sticker.
+- **`tools/memo.ts`**: Speffz is *generated* from the face-grid layout ("each face's four
+  stickers, clockwise from the top-left"), not typed from memory. Tracing closes a cycle when the
+  next shot would land on the piece it started from; pieces that are home but turned are broken
+  into like any other (the usual two shots) and also listed separately. The tests **execute** the
+  memo — buffer↔target piece swaps — and require a solved cube afterwards, over 200 random cubes.
+- **Stackmat** (`timer/stackmat.ts`): 1200-baud UART on the audio line, nine-byte packets
+  (status, m ss mmm, checksum = 64 + digit sum). We cannot know the line's polarity, so **both are
+  decoded at once** and only checksummed packets are believed; the one that produces packets wins.
+  The decoder runs in an AudioWorklet and posts bytes, not samples. `SolveGate` makes a solve out
+  of the first stop after a run (the timer repeats its stopped packet). **Never verified against
+  real hardware** — the tests drive it with synthesised audio.
+- **Smart cube** (`timer/smartcube.ts`): GAN over Web Bluetooth through **gan-web-bluetooth**
+  (MIT, lazily imported, ~74 KB chunk with rxjs + aes-js). The protocol is hardware fact, not
+  something to reconstruct, which is why the library earns its place. Chrome hides the cube's MAC
+  and the key is derived from it, so inphner asks for it once and remembers it per device name.
+  Timing starts on the first move and stops when the cube reads solved; the move stream is saved
+  as `solution` and `timer/phases.ts` turns it into cross/F2L/OLL splits.
+- **Both are labelled experimental and untested in the UI** (owner's call): an amber dot on the
+  Settings → Timer → Input buttons, a note under the row naming exactly what was and wasn't
+  tested, and an "Experimental" badge on each status pill. Once real hardware has confirmed them,
+  drop `experimental` from the `seg()` call in `views/settings-prefs.ts`, the `.pref-note` block
+  beside it, and the two badges in `views/timer.ts`.
 
 ## Stats pipeline
 
@@ -204,33 +333,25 @@ Quick self-check in the console:
 `getComputedStyle(document.body).backgroundColor` → `rgba(0, 0, 0, 0)`;
 `document.documentElement.scrollWidth <= innerWidth` at 375px.
 
-## Pre-release status (v1.0.0-pre)
+## Release status (v1.0.0)
 
-The owner asked for a **v1.0.0-pre** that ends at the Trainer. Version label: sidebar chip,
-console "ready" line (`VERSION` in main.ts) and package.json.
+Version label in three places, keep them in step: the sidebar chip (index.html), the console
+"ready" line (`VERSION` in main.ts) and package.json.
 
-**Done:** steps 1–8 (see Build status). 90 unit tests (`npm test`), each step checked in the
+**Done:** steps 1–11 (see Build status). 157 unit tests (`npm test`), each step checked in the
 browser pane at desktop size and 375px.
 
-**Next, in order:**
-1. **Step 9: command palette + shortcuts sheet.** `k` / Cmd-K opens a palette identical in look to
-   inphub's (switch session, switch event, jump to view, "export session", "toggle inspection"…);
-   `window.inphnerPalette` currently shows a "later build step" toast. The `?` sheet exists
-   (main.ts `showShortcuts`) and should list trainer keys too.
-2. **Step 10: PWA / offline.** Web manifest (icons exist in public/icons), a service worker that
-   caches the app shell + js/chunks (incl. cubing.js and Chart.js chunks), `.htaccess` already
-   serves `sw.js` / the manifest no-cache. Acceptance 9: offline reload, time a solve, it's saved.
-3. **Step 11: Stackmat (AudioWorklet decoder + status pill), smart cube (Web Bluetooth, GAN first,
-   behind "Experimental"; auto phases), Tools** (scramble batch + print stylesheet, cross/EOLine
-   solver hints via IDA* in a worker, metronome, BLD memo helper with Speffz). The Tools view is a
-   placeholder saying it comes after the pre-release; Settings → Timer has Stackmat / Smart cube
-   input buttons disabled.
-4. **Full acceptance pass** (inphner-prompt.md Part C, items 1–10), including: 60 fps while
+**Next:**
+1. **Full acceptance pass** (inphner-prompt.md Part C, items 1–10), including: 60 fps while
    timing and smooth list scrolling at 50k (needs the pane VISIBLE: rAF doesn't run hidden),
    csTimer numbers on 3 real imported sessions, the screenshot comparison with 01/02, reduced
    transparency everywhere, and the owner's manual checks below.
 
-**Handed to the owner (manual checks):** real keyboard and touch feel of hold-to-start, voice/beep
+**Handed to the owner (manual checks):** a real Stackmat (the decoder has only ever seen
+synthesised audio) and a real GAN cube (including the MAC prompt on macOS Chrome), a printed
+scramble sheet, one real offline reload (disconnect, reload, time a
+solve — the pane can't register a service worker, so only the harness covers it), installing it
+as a PWA on the phone and on macOS, real keyboard and touch feel of hold-to-start, voice/beep
 alerts, Wake Lock on a real phone, a real csTimer export import (multi-phase split encoding is
 implemented from memory: `[penalty, total, …earlier phase ends latest first]`, unverified),
 Firefox (the dual key registration), the 3D preview (cubing.js twisty), and naming the 50 unnamed
@@ -279,6 +400,15 @@ OLL slots / adding algs.
   Settings → Data card (export, import, backup reminder, erase everything behind typing "delete");
   Import/Export buttons in Sessions.
 - [x] **8. Trainer + Algorithms.** See "Trainer" below.
-- [ ] 9. Command palette + shortcuts sheet
-- [ ] 10. PWA/offline
-- [ ] 11. Stackmat, smart cube, tools
+- [x] **9. Command palette + shortcuts sheet.** `k` / Cmd-K (and the sidebar's Search button)
+  opens the palette: commands (new session, inspection, theme, import, export, shortcuts), Go to,
+  the alg sheets, every session and every event. ↑ ↓ Home End move, Enter runs, Esc closes, the
+  pointer picks; matched characters are highlighted in the accent. The `?` sheet now lists the
+  trainer and palette keys.
+- [x] **10. PWA / offline.** `manifest.webmanifest` (relative scope, maskable icon, Timer /
+  Trainer / Stats shortcuts), `src/sw.ts` → `public/sw.js` with a per-build cache, shell
+  precache, idle warm-up of every chunk, and a polite update toast. See "Offline (PWA)".
+- [x] **11. Stackmat, smart cube, Tools.** Tools view (scramble batch + print stylesheet, optimal
+  cross / EOLine / Roux first block hints in a worker, metronome with tap tempo, BLD memo helper
+  with an editable letter scheme); Stackmat through the microphone with a status pill; GAN smart
+  cube with automatic start/stop, the solution and automatic phase splits. See the section above.

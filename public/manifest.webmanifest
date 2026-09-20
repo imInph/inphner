@@ -1,0 +1,25 @@
+{
+  "name": "inphner",
+  "short_name": "inphner",
+  "description": "Speedcubing timer, session stats and algorithm trainer.",
+  "id": "inphner",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07080c",
+  "theme_color": "#0b0d12",
+  "categories": ["utilities", "sports", "education"],
+  "icons": [
+    { "src": "icons/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icons/favicon-32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Timer", "url": "#timer" },
+    { "name": "Trainer", "url": "#trainer" },
+    { "name": "Stats", "url": "#stats" }
+  ]
+}

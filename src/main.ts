@@ -12,16 +12,18 @@ import { parseRoute, routeKey, go, type Route } from './router.ts';
 import { toggleTheme } from './theme.ts';
 import { esc, isTyping } from './ui/dom.ts';
 import { icon } from './ui/icons.ts';
-import { openModal } from './ui/modal.ts';
 import { toast } from './ui/toast.ts';
 import { DEFAULT_VIEW, VIEWS, viewMeta } from './views/registry.ts';
 import { renderPlaceholder } from './views/placeholder.ts';
+import { showShortcuts } from './views/shortcuts.ts';
 import { leaveSettings, renderSettings } from './views/settings.ts';
 import { renderSessions } from './views/sessions.ts';
 import { renderStats } from './views/stats.ts';
+import { leaveTools, renderTools } from './views/tools.ts';
 import { leaveTrainer, renderTrainer, trainerBusy } from './views/trainer.ts';
 import { renderAlgorithms } from './views/algorithms.ts';
 import { initTimer, leaveTimer, renderTimer, timerBusy } from './views/timer.ts';
+import { registerServiceWorker } from './pwa/register.ts';
 import { currentSession, initStore } from './store.ts';
 import { warm } from './scramble/generator.ts';
 import { openSessionPicker, renderSessionPill } from './views/session-picker.ts';
@@ -37,7 +39,7 @@ declare global {
   }
 }
 
-const VERSION = '1.0.0-pre';
+const VERSION = '1.0.0';
 
 /* ------------------------------------------------------------------ sidebar */
 
@@ -69,6 +71,7 @@ function activate(route: Route): void {
   if (previous === 'settings' && meta.id !== 'settings') leaveSettings();
   if (previous === 'timer' && meta.id !== 'timer') leaveTimer();
   if (previous === 'trainer' && meta.id !== 'trainer') leaveTrainer();
+  if (previous === 'tools' && meta.id !== 'tools') leaveTools();
 
   document.querySelectorAll<HTMLElement>('.view').forEach((el) => {
     el.hidden = el.id !== `view-${meta.id}`;
@@ -89,6 +92,7 @@ function activate(route: Route): void {
   else if (meta.id === 'stats') renderStats(container);
   else if (meta.id === 'trainer') void renderTrainer(container);
   else if (meta.id === 'algorithms') void renderAlgorithms(container);
+  else if (meta.id === 'tools') renderTools(container);
   else renderPlaceholder(container, meta);
 
   if (previous && previous !== meta.id) window.scrollTo({ top: 0 });
@@ -120,9 +124,9 @@ let gTimer = 0;
 
 function onKey(e: KeyboardEvent): void {
   if (e.defaultPrevented || isTyping(e.target) || timerBusy() || trainerBusy()) return;
-  if (document.querySelector('.modal-backdrop')) return;
+  if (document.querySelector('.modal-backdrop, .palette-overlay')) return;
 
-  // Cmd/Ctrl+K and K: the command palette (arrives in step 9).
+  // Cmd/Ctrl+K and K: the command palette.
   if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey) && !e.altKey) {
     e.preventDefault();
     window.inphnerPalette?.();
@@ -154,33 +158,15 @@ function onKey(e: KeyboardEvent): void {
   }
 }
 
-function showShortcuts(): void {
-  const row = (keys: string[], label: string) =>
-    `<div class="row-compact" style="justify-content:space-between"><span>${esc(label)}</span>
-      <span style="display:flex;gap:4px">${keys.map((k) => `<kbd style="margin:0">${esc(k)}</kbd>`).join('')}</span></div>`;
-  openModal({
-    title: 'Keyboard shortcuts',
-    confirmLabel: 'Done',
-    cancelLabel: '',
-    bodyHtml: `
-      <div class="micro-label" style="margin:0 0 6px 9px">Go to</div>
-      ${VIEWS.map((v) => row(['g', v.key], v.label)).join('')}
-      <div class="micro-label" style="margin:14px 0 6px 9px">Timer</div>
-      ${row(['Space'], 'Hold until green, release to start')}
-      ${row(['any key'], 'Stop')}
-      ${row(['Esc'], 'Cancel a hold or inspection')}
-      ${row(['↵'], 'Keep the last solve')}
-      ${row(['2'], 'Toggle +2 on the last solve')}
-      ${row(['D'], 'Toggle DNF on the last solve')}
-      ${row(['C'], 'Comment on the last solve')}
-      ${row(['⌫'], 'Delete the last solve')}
-      ${row(['Alt', '1 / 2 / 3'], 'Last solve: OK / +2 / DNF')}
-      ${row(['Alt', 'Z'], 'Undo the last delete')}
-      <div class="micro-label" style="margin:14px 0 6px 9px">Anywhere</div>
-      ${row(['K'], 'Search and commands')}
-      ${row(['?'], 'This sheet')}
-      ${row(['Esc'], 'Close a drawer or dialog')}`,
-  });
+/* ----------------------------------------------------------------- palette */
+
+/** The palette and the commands it lists are one lazy chunk: they pull in the
+ *  import/export views, which nothing else needs before you ask for them. */
+function openPalette(): void {
+  if (timerBusy() || trainerBusy()) return;
+  void Promise.all([import('./ui/palette.ts'), import('./views/commands.ts')])
+    .then(([palette, commands]) => palette.openPalette(commands.paletteItems))
+    .catch(() => toast('The command palette could not load.', { kind: 'bad' }));
 }
 
 /* ------------------------------------------------------------------- ambient */
@@ -188,6 +174,14 @@ function showShortcuts(): void {
 /** Topbar turns to glass once content scrolls under it (≤768px); cards get a pointer-follow glow. */
 function alive(): void {
   const topbar = document.getElementById('topbar');
+  // The Timer view sizes itself against the viewport minus this, so the bottom
+  // sheet can never crowd the time. Safe-area insets and font size change it,
+  // so it is measured rather than guessed.
+  if (topbar) {
+    const setTopbar = () => document.documentElement.style.setProperty('--topbar-h', `${Math.round(topbar.getBoundingClientRect().height)}px`);
+    setTopbar();
+    new ResizeObserver(setTopbar).observe(topbar);
+  }
   const onScroll = () => topbar?.classList.toggle('scrolled', window.scrollY > 4);
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
@@ -226,7 +220,7 @@ async function boot(): Promise<void> {
 
   window.inphnerToggleTheme = toggleTheme;
   window.inphnerDrawer = (open?: boolean) => setDrawer(open ?? !sidebar.classList.contains('open'));
-  window.inphnerPalette = () => toast('The command palette arrives in a later build step.');
+  window.inphnerPalette = openPalette;
   window.inphnerShortcuts = showShortcuts;
   window.inphnerEventPicker = (trigger: HTMLElement) => {
     if (!timerBusy()) void openSessionPicker(trigger);
@@ -265,6 +259,7 @@ async function boot(): Promise<void> {
   if (!viewMeta(initial.view)) location.replace('#' + DEFAULT_VIEW);
   activate(parseRoute());
 
+  registerServiceWorker();
   window.__inphnerLoaded = true;
   console.info(`[inphner] v${VERSION} ready`);
 }

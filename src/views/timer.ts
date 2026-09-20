@@ -18,6 +18,14 @@
 import { TimerEngine, type SolveResult } from '../timer/engine.ts';
 import { formatLive, formatSingle, parseTypedTime, type Penalty } from '../timer/format.ts';
 import { inspectionAlert, unlockAudio } from '../timer/sounds.ts';
+import { connectStackmat, disconnectStackmat, stackmatState, type StackmatState } from '../timer/stackmat-source.ts';
+import { SolveGate, type StackmatPacket } from '../timer/stackmat.ts';
+import {
+  connectSmartCube, disconnectSmartCube, resetSmartCube, smartCubeSupported, smartDeviceName,
+  smartState, type SmartMove, type SmartState,
+} from '../timer/smartcube.ts';
+import { PhaseTracker } from '../timer/phases.ts';
+import { apply, type Cube } from '../tools/cube.ts';
 import { inspectionFor, prefs } from '../prefs.ts';
 import {
   addSolve, currentSession, currentSolves, restoreSolves, solveById, updateSession, updateSolve, type Session, type Solve,
@@ -92,8 +100,10 @@ export function renderTimer(el: HTMLElement): void {
   active = true;
   root.dataset.view = 'timer';
   const typing = prefs().input === 'typing';
+  const stackmat = prefs().input === 'stackmat';
+  const smartCube = prefs().input === 'smartcube';
   const touch = isTouchDevice();
-  const firstRun = currentSolves().length === 0 && !typing && !isFmc();
+  const firstRun = currentSolves().length === 0 && !typing && !stackmat && !smartCube && !isFmc();
 
   el.innerHTML = `
     <div class="timer-view">
@@ -108,6 +118,8 @@ export function renderTimer(el: HTMLElement): void {
               ${icon('clock')}
               <input id="typing-input" inputmode="decimal" enterkeyhint="done" placeholder="Type a time: 1234, 1:02.34, DNF, 12.34+" aria-label="Type a time and press Enter" spellcheck="false">
             </form>` : ''}
+          ${stackmat ? '<div class="stackmat-pill" id="stackmat-pill" data-no-timer data-chrome></div>' : ''}
+          ${smartCube ? '<div class="stackmat-pill" id="smart-pill" data-no-timer data-chrome></div>' : ''}
           <div class="post-solve" id="post-solve" data-no-timer data-chrome></div>
         </div>
         ${firstRun ? `
@@ -158,6 +170,14 @@ export function renderTimer(el: HTMLElement): void {
     typing: el.querySelector('#typing-input'),
   };
   if (firstRun) els.stage.classList.add('is-first-run');
+  if (stackmat) {
+    mountStackmat();
+    el.addEventListener('click', onStackmatClick);
+  }
+  if (smartCube) {
+    mountSmart();
+    el.addEventListener('click', onSmartClick);
+  }
   mountScramble(el.querySelector<HTMLElement>('.timer-top')!, currentSession().event);
 
   wireStage(els.stage);
@@ -236,6 +256,11 @@ export function leaveTimer(): void {
   delete root.dataset.running;
   delete root.dataset.focus;
   leaveFmc();
+  disconnectStackmat();
+  disconnectSmartCube();
+  cancelAnimationFrame(smart.frame);
+  smart.frame = 0;
+  smart.running = false;
   void releaseWakeLock();
   unmountScramble();
   els = null;
@@ -278,7 +303,7 @@ function paint(): void {
   else if (hold === 'tap') text = 'release to inspect';
   else if (phase === 'inspecting') text = isTouchDevice() ? 'inspecting · touch and hold to start' : 'inspecting · hold space to start';
   else if (phase === 'running') text = p.phases > 1 ? `phase ${engine.splits.length + 1} of ${p.phases}` : '';
-  else if (!postSolveId) text = p.input === 'typing' ? '' : isTouchDevice() ? 'touch and hold to start' : 'hold space to start';
+  else if (!postSolveId) text = externalInput() ? '' : isTouchDevice() ? 'touch and hold to start' : 'hold space to start';
   label.textContent = text;
 
   // Focus mode and the wallpaper pause.
@@ -761,13 +786,13 @@ function onKeyDown(e: KeyboardEvent): void {
     e.preventDefault();
     e.stopPropagation();
     if (e.repeat) return;
-    if (prefs().input === 'typing') return;
+    if (externalInput()) return;
     unlockAudio();
     blurFocus();
     engine.press(now);
     return;
   }
-  if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && ctrlL && ctrlR && !e.repeat && prefs().input !== 'typing') {
+  if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && ctrlL && ctrlR && !e.repeat && !externalInput()) {
     e.preventDefault();
     ctrlArmed = true;
     unlockAudio();
@@ -874,7 +899,7 @@ function wireStage(stage: HTMLElement): void {
     if (!active || engine.phase === 'running') return; // the document handler stops
     if (e.button !== 0 || activePointer !== null) return;
     if ((e.target as HTMLElement).closest('[data-no-timer], button, a, input, textarea, select')) return;
-    if (prefs().input === 'typing' || isFmc()) return;
+    if (externalInput() || isFmc()) return;
     if (document.querySelector('.modal-backdrop')) return;
     const now = performance.now();
     e.preventDefault();
@@ -920,6 +945,210 @@ function onDocPointerUp(e: PointerEvent): void {
   if (stopKey !== `pointer:${e.pointerId}`) return;
   stopKey = null;
   engine.release(performance.now());
+}
+
+/* ---------------------------------------------------------------- stackmat */
+
+/** Typing, a Stackmat or a smart cube: the keyboard and the stage stop timing. */
+function externalInput(): boolean {
+  return prefs().input !== 'keyboard';
+}
+
+const STACKMAT_LABEL: Record<StackmatState, string> = {
+  off: 'Not connected',
+  connecting: 'Asking for the microphone…',
+  waiting: 'Listening — no signal yet',
+  live: 'Connected',
+  error: 'Could not listen',
+};
+
+const stackmatGate = new SolveGate();
+
+function paintStackmatPill(state: StackmatState, detail?: string): void {
+  const pill = container?.querySelector<HTMLElement>('#stackmat-pill');
+  if (!pill) return;
+  pill.dataset.state = state;
+  pill.innerHTML = `
+    <span class="stackmat-dot" aria-hidden="true"></span>
+    <span class="grow">${esc(detail ?? STACKMAT_LABEL[state])}</span>
+    <span class="badge tint-orange" title="Never tested against a real timer">Experimental</span>
+    <button type="button" class="btn btn-sm" data-no-timer data-stackmat="${state === 'off' || state === 'error' ? 'connect' : 'disconnect'}">
+      ${state === 'off' || state === 'error' ? 'Connect' : 'Disconnect'}</button>`;
+}
+
+function onStackmatPacket(packet: StackmatPacket): void {
+  if (!els) return;
+  const solveMs = stackmatGate.accept(packet);
+  if (packet.status === 'running') {
+    els.stage.classList.remove('is-first-run');
+    els.time.textContent = formatSingle(packet.ms, prefs().precision);
+    els.label.textContent = 'running on the timer';
+    return;
+  }
+  if (packet.status === 'reset') {
+    els.time.textContent = formatSingle(0, prefs().precision);
+    els.label.textContent = '';
+    return;
+  }
+  if (packet.status === 'ready' || packet.status === 'hands') {
+    els.label.textContent = packet.status === 'ready' ? 'ready on the timer' : 'hands on the pads';
+    return;
+  }
+  if (solveMs === null) return;
+  const scramble = currentScramble();
+  advanceScramble();
+  els.time.textContent = formatSingle(solveMs, prefs().precision);
+  void addSolve({ timeMs: solveMs, penalty: 0, scramble, source: 'stackmat' }).then((solve) => landSolve(solve));
+}
+
+function mountStackmat(): void {
+  stackmatGate.reset();
+  paintStackmatPill(stackmatState());
+  if (stackmatState() === 'off') return;
+  void connectStackmat({ onPacket: onStackmatPacket, onState: paintStackmatPill });
+}
+
+/** The Connect / Disconnect button in the pill. */
+function onStackmatClick(e: Event): void {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-stackmat]');
+  if (!btn) return;
+  if (btn.dataset.stackmat === 'connect') {
+    void connectStackmat({ onPacket: onStackmatPacket, onState: paintStackmatPill });
+  } else {
+    disconnectStackmat();
+  }
+}
+
+/* -------------------------------------------------------------- smart cube */
+
+const SMART_LABEL: Record<SmartState, string> = {
+  off: 'Not connected',
+  connecting: 'Looking for a cube…',
+  connected: 'Connected',
+  error: 'Could not connect',
+};
+
+const smart = {
+  cube: null as Cube | null,
+  running: false,
+  t0: 0,
+  moves: [] as string[],
+  battery: -1,
+  tracker: new PhaseTracker(),
+  frame: 0,
+};
+
+function paintSmartPill(state: SmartState, detail?: string): void {
+  const pill = container?.querySelector<HTMLElement>('#smart-pill');
+  if (!pill) return;
+  const name = smartDeviceName();
+  const battery = smart.battery >= 0 ? ` · ${smart.battery}%` : '';
+  pill.dataset.state = state;
+  pill.innerHTML = `
+    <span class="stackmat-dot" aria-hidden="true"></span>
+    <span class="grow">${esc(detail ?? (state === 'connected' && name ? `${name}${battery}` : SMART_LABEL[state]))}</span>
+    <span class="badge tint-orange" title="Never tested against a real cube">Experimental</span>
+    ${state === 'connected' ? `<button type="button" class="btn btn-sm" data-no-timer data-smart="sync"
+      title="Tell the cube it is solved, if its state has drifted">Sync</button>` : ''}
+    <button type="button" class="btn btn-sm" data-no-timer data-smart="${state === 'connected' ? 'disconnect' : 'connect'}">
+      ${state === 'connected' ? 'Disconnect' : 'Connect'}</button>`;
+}
+
+function paintSmartTime(): void {
+  smart.frame = 0;
+  if (!els || !smart.running) return;
+  const p = prefs();
+  const ms = performance.now() - smart.t0;
+  els.time.textContent = p.live === 'off' ? 'solving' : formatLive(ms, p.live, p.precision);
+  smart.frame = requestAnimationFrame(paintSmartTime);
+}
+
+function finishSmartSolve(elapsed: number): void {
+  smart.running = false;
+  cancelAnimationFrame(smart.frame);
+  smart.frame = 0;
+  if (!els) return;
+  root.removeAttribute('data-running');
+  const timeMs = Math.round(elapsed);
+  els.time.textContent = formatSingle(timeMs, prefs().precision);
+  els.label.textContent = '';
+  const scramble = currentScramble();
+  const splits = smart.tracker.splits.length ? [...smart.tracker.splits] : undefined;
+  const solution = smart.moves.join(' ');
+  smart.moves = [];
+  advanceScramble();
+  void addSolve({ timeMs, penalty: 0, scramble, splits, solution, source: 'smartcube' })
+    .then((solve) => landSolve(solve));
+}
+
+function onSmartMove(move: SmartMove): void {
+  if (!els || !smart.cube) return;
+  smart.cube = apply(smart.cube, move.move);
+  const at = Number.isFinite(move.at) ? move.at : performance.now();
+  if (!smart.running) {
+    smart.running = true;
+    smart.t0 = at;
+    smart.moves = [];
+    smart.tracker.reset();
+    els.stage.classList.remove('is-first-run');
+    root.dataset.running = '';
+    paintSmartTime();
+  }
+  smart.moves.push(move.move);
+  const elapsed = at - smart.t0;
+  const done = smart.tracker.update(smart.cube, elapsed);
+  if (done.includes(4)) finishSmartSolve(elapsed);
+  else if (els) els.label.textContent = `${smart.moves.length} moves`;
+}
+
+/** The cube's own state: trusted while we aren't timing. */
+function onSmartState(cube: Cube, isSolved: boolean): void {
+  if (smart.running) return;
+  smart.cube = cube;
+  if (isSolved) smart.tracker.reset();
+}
+
+const smartHandlers = {
+  onState: paintSmartPill,
+  onMove: onSmartMove,
+  onState3: onSmartState,
+  onBattery: (level: number) => { smart.battery = level; paintSmartPill(smartState()); },
+};
+
+/** Chrome on macOS won't give up the cube's MAC, and the key is derived from it. */
+function askForMac(deviceName: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let answered = false;
+    openModal({
+      title: 'The cube\'s MAC address',
+      confirmLabel: 'Connect',
+      bodyHtml: `
+        <p>This browser won't tell inphner the Bluetooth address of <strong>${esc(deviceName)}</strong>,
+        and the cube's encryption key is made from it. You'll find it in the GAN app, or on the
+        sticker in the battery compartment. inphner remembers it for next time.</p>
+        <label><span>MAC address</span><input name="mac" placeholder="AB:CD:EF:12:34:56" autocomplete="off" spellcheck="false"></label>`,
+      onConfirm: (m) => {
+        answered = true;
+        resolve(m.querySelector<HTMLInputElement>('[name="mac"]')!.value.trim() || null);
+      },
+      onClose: () => { if (!answered) resolve(null); },
+    });
+  });
+}
+
+function mountSmart(): void {
+  smart.tracker.reset();
+  paintSmartPill(smartState());
+  if (!smartCubeSupported()) paintSmartPill('error', 'This browser has no Web Bluetooth.');
+}
+
+function onSmartClick(e: Event): void {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-smart]');
+  if (!btn) return;
+  if (btn.dataset.smart === 'connect') void connectSmartCube(smartHandlers, askForMac);
+  else if (btn.dataset.smart === 'sync') {
+    void resetSmartCube().then(() => toast('The cube now calls this state solved.', { kind: 'good' }));
+  } else disconnectSmartCube();
 }
 
 /* ------------------------------------------------------------- typing mode */

@@ -612,6 +612,50 @@ table.data td.num, table.data th.num { text-align: right; font-variant-numeric: 
     animation: sheetIn .25s var(--spring-soft) backwards;
 }
 
+/* ---- Command palette (k / Cmd-K) ---- */
+/* The tint + blur go on ::before for the same reason as the modal backdrop. */
+.palette-overlay {
+    position: fixed; inset: 0; z-index: 95; display: flex; justify-content: center;
+    padding: 12vh 12px 12px; animation: fadeIn .18s ease backwards;
+}
+.palette-overlay::before {
+    content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(0,0,0,.26);
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+}
+.palette-box {
+    display: flex; flex-direction: column; width: 100%; max-width: 620px; max-height: 70vh;
+    border-radius: 24px; overflow: hidden;
+    animation: sheetIn .35s var(--spring-soft) backwards;
+}
+.palette-head { flex: none; display: flex; align-items: center; box-shadow: inset 0 -1px 0 var(--border); }
+.palette-close { display: none; flex: none; margin-right: 8px; }
+.palette-input {
+    flex: 1; min-width: 0; padding: 18px 20px; border: none; border-radius: 0;
+    background: transparent; color: var(--text); font: inherit; font-size: 1.1rem; letter-spacing: -.01em;
+}
+.palette-input:focus-visible { outline: none; box-shadow: none; }
+.palette-list { max-height: 420px; overflow-y: auto; padding: 4px 0 8px; overscroll-behavior: contain; }
+.palette-section { padding: 10px 20px 4px; }
+.palette-item {
+    display: flex; align-items: center; gap: 10px; margin: 1px 8px; padding: 10px 12px;
+    border-radius: 12px; cursor: pointer; transition: background-color .12s;
+}
+.palette-item.on { background: var(--accent-soft); }
+.palette-item > svg { flex: none; color: var(--text-dim); }
+.palette-item.on > svg { color: var(--accent); }
+.palette-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.palette-label, .palette-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-label { font-size: .95rem; font-weight: 560; }
+.palette-sub { font-size: .78rem; color: var(--text-dim); }
+.palette-hint { flex: none; font-size: .78rem; color: var(--text-faint); }
+.pal-hit { background: none; color: var(--accent); font-weight: 720; }
+.palette-list .empty { padding: 28px 16px; }
+body.palette-on { overflow: hidden; }
+@media (hover: hover) {
+    .palette-item:hover { background: var(--fill-1); }
+    .palette-item.on:hover { background: var(--accent-soft); }
+}
+
 .toasts {
     position: fixed; bottom: 20px; right: 20px; z-index: 100;
     display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
@@ -729,7 +773,10 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 .timer-stage.is-typing { touch-action: manipulation; }
 /* Optical centre: a touch above the geometric middle (padding, not a transform:
    no transform may sit on an ancestor of the glass buttons below). */
-.time-block { display: flex; flex-direction: column; align-items: center; padding-bottom: 2vh; min-width: 0; max-width: 100%; }
+.time-block {
+    position: relative; display: flex; flex-direction: column; align-items: center; width: 100%;
+    padding-bottom: 2vh; padding-bottom: 2dvh;   /* dvh: iOS counts vh against the tallest viewport */
+}
 
 .time {
     font-family: var(--font-rounded); font-weight: 720; font-variant-numeric: tabular-nums;
@@ -756,8 +803,12 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
     letter-spacing: .01em; text-align: center;
 }
 
+/* Out of flow on purpose: reserving 62px for a row that is usually not there
+   pushed the time off centre (badly so on a phone), and taking the row out of
+   the flow also means landing a solve can never shift the time. */
 .post-solve {
-    display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 14px; min-height: 62px;
+    position: absolute; top: calc(100% + 10px); left: 0; right: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
     transition: opacity .18s var(--ease-out);
 }
 .post-solve.is-hidden { opacity: 0; pointer-events: none; }
@@ -765,6 +816,8 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 .post-buttons .btn { gap: 6px; }
 .post-buttons .btn.on { color: var(--accent); background-color: var(--glass-bg-strong); }
 .post-buttons .btn.is-warn.on { color: var(--warn); }
+/* The trainer's "mistake logged · undo" button, once a mistake is on record. */
+.trainer-actions .btn.is-warn.on { color: var(--warn); background-color: var(--fill-2); }
 .post-buttons .btn.is-bad.on { color: var(--bad); }
 .post-hint { font-size: .74rem; font-weight: 550; color: var(--text-faint); }
 .post-hint kbd { margin: 0; }
@@ -1112,8 +1165,16 @@ a.popover-item { text-decoration: none; }
 .trainer-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .trainer-actions kbd { margin-left: 4px; }
 .recog { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 0; }
-.recog-diagram { width: 160px; }
-.recog-diagram.is-hidden { visibility: hidden; height: 0; }
+/* The picture keeps its box in every phase: collapsing it made the options
+   jump up and the answer push them back down. */
+.recog-diagram { width: 160px; aspect-ratio: 1; display: grid; place-items: center; }
+.recog-diagram .case-diagram { max-width: none; width: 100%; }
+.recog-diagram.is-hidden { visibility: hidden; }
+/* Question and answer are the same height, so nothing moves when you answer. */
+.recog-below {
+    width: 100%; min-height: 104px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+}
 .recog-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(100%, 520px); }
 .recog-options .btn { justify-content: flex-start; padding: 12px 14px; }
 .recog-options kbd { margin: 0 6px 0 0; }
@@ -1206,6 +1267,15 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
     }
     body.drawer-open { overflow: hidden; }
 
+    .palette-overlay { padding: 0; }
+    .palette-box {
+        width: 100%; max-width: none; height: 100dvh; max-height: none; border-radius: 0;
+        padding-top: env(safe-area-inset-top);
+        animation: sheetUp .35s var(--spring-soft) backwards;
+    }
+    .palette-close { display: inline-flex; }
+    .palette-list { flex: 1; max-height: none; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
     .topbar {
         position: sticky; top: 0; z-index: 30; align-items: center;
         margin: 0; padding: max(8px, env(safe-area-inset-top)) 10px 8px;
@@ -1247,11 +1317,30 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
     .toast { max-width: none; }
 
     /* Phone: stats + solves in a swipe-up glass bottom sheet. */
-    .timer-view { padding-bottom: calc(var(--peek) + 8px); }
-    #view-timer { --peek: 350px; }
+    /* Fit the viewport exactly: without a cap the stage takes its content's
+       height, the page scrolls, and the fixed sheet ends up over the time. */
+    #view-timer:not([hidden]) {
+        max-height: calc(100vh - var(--topbar-h, 64px));
+        max-height: calc(100dvh - var(--topbar-h, 64px));
+    }
+    .timer-view { padding-bottom: calc(var(--peek) + 8px); min-height: 0; }
+    .timer-stage { overflow: clip; }
+    /* The first-run card has to fit the stage on a short phone, or it gets clipped. */
+    .first-run-card { padding: 16px 18px; max-width: min(420px, 100%); }
+    .first-run-card h2 { font-size: 1.15rem; margin: 10px 0 6px; }
+    .first-run-card p { font-size: .92rem; }
+    .first-run-card .hint { margin-top: 10px; }
+    .keycap-wrap { height: 52px; }
+    /* How much of the sheet peeks. Fixed at 350px it swallowed the timer on a
+       short screen (an iPhone with Safari's toolbars showing), pushing the time
+       under the sheet and hard against the scramble. The vh line is the
+       fallback for iOS versions without dvh. */
+    #view-timer { --peek: min(350px, 30vh); --peek: clamp(150px, 30dvh, 350px); }
     /* A transform on the view would make the fixed sheet position against it while entering. */
     #view-timer:not([hidden]) { animation-name: fadeIn; }
-    .timer-stage { min-height: 0; }
+    /* The stage keeps a real height of its own, so the time always has room
+       between the scramble and the sheet instead of being squeezed against it. */
+    .timer-stage { min-height: min(320px, 30vh); min-height: clamp(170px, 30dvh, 320px); }
     .timer-bottom {
         position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
         height: min(86dvh, 720px); padding: 0 12px max(10px, env(safe-area-inset-bottom));
@@ -1296,6 +1385,159 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
     .pill-label { max-width: 96px; overflow: hidden; text-overflow: ellipsis; }
 }
 
+/* A short phone (an iPhone with Safari's toolbars showing) can't spare the aside. */
+@media (max-width: 768px) and (max-height: 720px) {
+    .first-run-card .hint { display: none; }
+    .first-run-card { padding: 14px 18px; }
+}
+
 @media (max-width: 480px) {
     .clock { display: none; }
 }
+
+/* ==========================================================================
+   Tools (A9): scramble sheet, solver hints, metronome, BLD memo
+   ========================================================================== */
+.tools-grid { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); align-items: start; }
+.tool-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.scramble-sheet {
+    margin: 12px 0 0; padding: 0 0 0 34px; display: flex; flex-direction: column; gap: 6px;
+    font-size: .84rem; line-height: 1.45; max-height: 420px; overflow-y: auto;
+}
+.scramble-sheet li { padding-left: 4px; color: var(--text); }
+.scramble-sheet li::marker { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+.hint-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.hint-row { display: flex; align-items: center; gap: 12px; }
+.hint-row .btn { flex: 0 0 104px; }
+.hint-answer { min-width: 0; font-size: .86rem; overflow-wrap: anywhere; }
+
+.metronome { display: flex; align-items: center; gap: 16px; margin: 6px 0 14px; }
+.metronome .bpm {
+    font-family: var(--font-rounded); font-size: 2rem; font-weight: 720; letter-spacing: -.03em;
+    flex: 0 0 auto; min-width: 128px;
+}
+.metronome .bpm small { font-size: .8rem; font-weight: 600; color: var(--text-dim); letter-spacing: 0; }
+.metronome .range-field { flex: 1; }
+.beat-dot {
+    width: 14px; height: 14px; border-radius: 50%; background: var(--fill-3); flex: 0 0 auto;
+}
+.beat-dot.on { animation: beatPulse .18s ease-out; }
+.beat-dot.on.strong { background: var(--accent); }
+@keyframes beatPulse { from { transform: scale(1.7); background: var(--accent); } to { transform: scale(1); } }
+
+.memo-out { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
+.memo-letters { font-size: 1.05rem; letter-spacing: .06em; margin-top: 2px; }
+.scheme-editor { margin-top: 14px; }
+.scheme-editor summary { cursor: pointer; font-size: .86rem; color: var(--text-dim); }
+.scheme-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.scheme-grid input { padding: 5px 0; text-align: center; font-family: var(--font-rounded); font-size: .8rem; }
+
+/* The printed scramble sheet: plain black on white, nothing else on the page. */
+@media print {
+    html[data-print="scrambles"] { background: #fff !important; }
+    html[data-print="scrambles"] .wallpaper,
+    html[data-print="scrambles"] .sidebar,
+    html[data-print="scrambles"] .topbar,
+    html[data-print="scrambles"] .toasts,
+    html[data-print="scrambles"] .nav-backdrop,
+    html[data-print="scrambles"] .card:not(:has(.scramble-sheet)),
+    html[data-print="scrambles"] .tool-actions,
+    html[data-print="scrambles"] .field-row { display: none !important; }
+    html[data-print="scrambles"] .card:has(.scramble-sheet) {
+        background: #fff !important; box-shadow: none !important; border: none !important;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        padding: 0 !important;
+    }
+    html[data-print="scrambles"] .card-head { color: #000; border: none; }
+    html[data-print="scrambles"] .scramble-sheet {
+        max-height: none; overflow: visible; color: #000; font-size: 11pt; gap: 10px;
+    }
+    html[data-print="scrambles"] .scramble-sheet li { break-inside: avoid; color: #000; }
+    html[data-print="scrambles"] * { color: #000 !important; text-shadow: none !important; }
+}
+
+@media (max-width: 768px) {
+    .tools-grid { grid-template-columns: 1fr; }
+    .hint-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .hint-row .btn { flex: none; }
+    .scheme-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+
+/* ---- Stackmat status pill (Settings → Timer → Input: Stackmat) ---- */
+.stackmat-pill {
+    display: flex; align-items: center; gap: 10px; margin-top: 16px;
+    padding: 8px 8px 8px 14px; border-radius: var(--radius-pill);
+    background: var(--fill-1); font-size: .85rem; color: var(--text-dim);
+    min-width: 280px; max-width: 420px;
+}
+.stackmat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
+.stackmat-pill[data-state="waiting"] .stackmat-dot { background: var(--warn); }
+.stackmat-pill[data-state="live"] .stackmat-dot { background: var(--good); }
+.stackmat-pill[data-state="error"] .stackmat-dot { background: var(--bad); }
+.stackmat-pill[data-state="live"] { color: var(--text); }
+
+/* ---- Experimental inputs (Stackmat, smart cube): honest about being untested ---- */
+.exp-mark {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warn); flex: none; margin-right: 6px; vertical-align: 1px;
+}
+.segmented button.is-experimental { padding-left: 10px; }
+.pref-note {
+    display: flex; gap: 2px; align-items: flex-start;
+    margin: -2px 0 2px; padding: 10px 12px; border-radius: var(--radius-sm);
+    background: var(--fill-1); font-size: .82rem; line-height: 1.5; color: var(--text-dim);
+}
+.pref-note .exp-mark { margin-top: 7px; margin-right: 8px; }
+.pref-note strong { color: var(--warn); font-weight: 650; }
+
+/* Cross colour picker (Tools → Solver hints) */
+.cross-colours { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.cross-colours .micro-label { margin-right: 2px; }
+.cross-colour {
+    width: 26px; height: 26px; border-radius: 9px; cursor: pointer; padding: 0;
+    background: var(--sw); border: 1px solid color-mix(in srgb, #000 22%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+    transition: transform .15s var(--spring), box-shadow .15s;
+}
+.cross-colour.on {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+@media (hover: hover) { .cross-colour:hover { transform: translateY(-1px); } }
+.hint-answer .mono { font-size: .95rem; }
+.hint-answer small { display: block; margin-top: 2px; }
+
+/* A hint shows the state it leaves you in, so the cube can be checked against it. */
+.hint-row.has-answer { align-items: flex-start; gap: 14px; padding: 10px 0; border-top: 1px solid var(--border); }
+.hint-row.has-answer + .hint-row.has-answer { border-top: 1px solid var(--border); }
+.hint-hold { font-size: .82rem; color: var(--text-dim); }
+.hint-hold strong { color: var(--text); font-weight: 620; }
+.hint-hold .mono { color: var(--accent); }
+.hint-moves { font-size: 1.05rem; letter-spacing: .01em; margin-top: 3px; }
+.hint-nets { display: flex; align-items: center; gap: 8px; flex: none; }
+.hint-arrow { color: var(--text-faint); }
+.hint-net { margin: 0; flex: none; text-align: center; }
+.hint-net figcaption { font-size: .68rem; color: var(--text-faint); margin-top: 3px; }
+
+/* Scramble boxes wrap and grow: a scramble you have to scroll sideways to read
+   is a scramble you will apply wrongly. */
+.scramble-field {
+    width: 100%; resize: vertical; min-height: 58px; overflow: hidden;
+    line-height: 1.6; letter-spacing: .01em; word-spacing: .12em; white-space: pre-wrap;
+}
+
+/* "Any colour" shows what every cross colour would cost, rather than picking one quietly. */
+.hint-colours { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.hint-colour {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 4px;
+    border: 1px solid transparent; border-radius: var(--radius-pill);
+    background: var(--fill-1); color: var(--text-dim); font: inherit; font-size: .78rem; cursor: pointer;
+    transition: background-color .15s, color .15s;
+}
+.hint-colour i {
+    width: 12px; height: 12px; border-radius: 4px; background: var(--sw);
+    border: 1px solid color-mix(in srgb, #000 22%, transparent);
+}
+.hint-colour.on { background: var(--accent-soft); color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+@media (hover: hover) { .hint-colour:hover { background: var(--fill-2); } }

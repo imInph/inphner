@@ -8,10 +8,25 @@ import { eventDef } from '../events.ts';
 import { beep, speak } from '../timer/sounds.ts';
 import { esc } from '../ui/dom.ts';
 
-function seg(key: keyof Prefs, options: [string | number, string][], value: unknown, disabledValues: (string | number)[] = []): string {
-  return `<div class="segmented" role="group">${options.map(([v, label]) => `
+interface SegOptions {
+  /** Values that can't be picked yet. */
+  disabled?: (string | number)[];
+  /** Values that work in theory: built to the published protocol, never met the hardware. */
+  experimental?: (string | number)[];
+}
+
+const EXPERIMENTAL_TITLE = 'Experimental: built to the published protocol but never tested against the real hardware.';
+
+function seg(key: keyof Prefs, options: [string | number, string][], value: unknown, opts: SegOptions = {}): string {
+  return `<div class="segmented" role="group">${options.map(([v, label]) => {
+    const experimental = opts.experimental?.includes(v);
+    return `
     <button type="button" data-action="pref" data-key="${key}" data-value="${v}" data-type="${typeof v}"
-      class="${value === v ? 'on' : ''}" aria-pressed="${value === v}" ${disabledValues.includes(v) ? 'disabled title="Arrives in a later build step"' : ''}>${esc(label)}</button>`).join('')}</div>`;
+      class="${value === v ? 'on' : ''}${experimental ? ' is-experimental' : ''}" aria-pressed="${value === v}"
+      ${experimental ? `title="${EXPERIMENTAL_TITLE}" aria-label="${esc(label)} (experimental, untested)"` : ''}
+      ${opts.disabled?.includes(v) ? 'disabled title="Arrives in a later build step"' : ''}>${
+      experimental ? '<i class="exp-mark" aria-hidden="true"></i>' : ''}${esc(label)}</button>`;
+  }).join('')}</div>`;
 }
 
 function row(label: string, control: string, hint = ''): string {
@@ -35,7 +50,14 @@ export function prefsCards(): string {
           <output class="num" data-out="holdMs">${p.holdMs} ms</output></div>`, 'How long space must be held before the time turns green.')}
         ${row('Precision', seg('precision', [[2, '0.01'], [3, '0.001']], p.precision))}
         ${row('While running', seg('live', [['full', 'Full'], ['tenths', '0.1'], ['seconds', 'Seconds'], ['off', 'Hidden']], p.live), '"Hidden" shows only "solving".')}
-        ${row('Input', seg('input', [['keyboard', 'Timer'], ['typing', 'Typing'], ['stackmat', 'Stackmat'], ['smartcube', 'Smart cube']], p.input, ['stackmat', 'smartcube']))}
+        ${row('Input', seg('input', [['keyboard', 'Timer'], ['typing', 'Typing'], ['stackmat', 'Stackmat'], ['smartcube', 'Smart cube']], p.input,
+          { experimental: ['stackmat', 'smartcube'] }), 'Stackmat and Smart cube are experimental.')}
+        ${p.input === 'stackmat' || p.input === 'smartcube' ? `
+        <p class="pref-note"><span class="exp-mark" aria-hidden="true"></span>
+          <span><strong>Experimental and untested.</strong> ${p.input === 'stackmat'
+            ? 'The Stackmat decoder is built to the published 1200-baud packet format and has only ever been fed synthesised audio — it has never met a real timer. If it stays silent, the timer\'s signal may differ.'
+            : 'Smart cube support speaks GAN\'s Bluetooth protocol through gan-web-bluetooth, but no cube has been paired with it here. Chrome will ask for the cube\'s MAC address, which is printed in the GAN app.'}
+</span></p>` : ''}
         ${row('Phases', `<input type="number" min="1" max="10" step="1" value="${p.phases}" data-pref="phases" class="num-input" aria-label="Number of phases">`, 'More than 1 records a split on each press (e.g. 4: cross / F2L / OLL / PLL).')}
         ${switchRow('focusMode', 'Hide everything while timing', p.focusMode)}
         ${switchRow('confirmDelete', 'Confirm before deleting', p.confirmDelete, 'Off by default: the Undo toast is enough.')}

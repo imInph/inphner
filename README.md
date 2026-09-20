@@ -4,8 +4,9 @@ A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
 IndexedDB in your browser), in a frosted "Glass" design.
 
-**Status: v1.0.0-pre.** The pre-release ends at the Trainer. Next: command palette, PWA/offline,
-Stackmat / smart cube input and the Tools view.
+**Status: v1.0.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
+trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smart cube input
+(both marked experimental until they've met real hardware).
 
 ## Features
 
@@ -24,6 +25,15 @@ Stackmat / smart cube input and the Tools view.
   scrambles you can't read the case from, weighted spaced repetition or "once per round",
   recognition mode, per-case stats, and a personal alg sheet. Every bundled algorithm is checked
   by unit tests.
+- **Tools:** batches of scrambles with a print sheet; *optimal* cross, XCross, EOLine and Roux
+  first-block hints in any cross colour (or all six at once, with what each would cost), each one
+  telling you how to hold the cube and drawing the state before and after; a metronome with tap
+  tempo; and a BLD memo helper with an editable letter scheme (Speffz by default).
+- **Other timers:** a Stackmat through the microphone, or a GAN smart cube over Bluetooth
+  (experimental) that starts on the first move, stops when the cube is solved, and saves the
+  solution with automatic cross / F2L / OLL splits.
+- **Offline:** installs as an app and runs with no network — the whole build is cached, so you can
+  time solves on a plane.
 - **Import / export:** csTimer (.txt), CSV and full inphner backups.
 - Dark / light, 9 accents, 7 wallpapers, reduced transparency, keyboard-first, phone-friendly.
 
@@ -48,6 +58,7 @@ on every change. See `CLAUDE.md` for architecture and conventions.
 
 - [cubing.js](https://github.com/cubing/cubing.js) (MPL-2.0 / GPL-3.0) for scrambles, solving and 3D previews.
 - [Chart.js](https://www.chartjs.org/) (MIT) for charts.
+- [gan-web-bluetooth](https://github.com/afedotov/gan-web-bluetooth) (MIT) for GAN smart cubes.
 - WCA event icons from [cubing/icons](https://github.com/cubing/icons) (MIT).
 
 ## License

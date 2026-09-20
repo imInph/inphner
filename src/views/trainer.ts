@@ -62,6 +62,13 @@ const run = {
   recogTimer: 0,
   frame: 0,
   stopKey: null as string | null,
+  /** M is easy to hit by accident mid-drill, so it asks once. */
+  confirmingMistake: false,
+  confirmTimer: 0,
+  /** The stats before this attempt's mistake was logged, for Undo. */
+  beforeMistake: null as CaseStats | null,
+  /** The stats before the attempt was recorded at all: what a mistake reverts to. */
+  beforeSolve: null as CaseStats | null,
 };
 
 const engine = new TimerEngine(
@@ -108,6 +115,10 @@ async function nextCase(): Promise<void> {
   if (trainerPrefs().mode === 'recog') return nextRecog();
   run.phase = 'loading';
   run.showAlg = false;
+  clearTimeout(run.confirmTimer);
+  run.confirmingMistake = false;
+  run.beforeMistake = null;
+  run.beforeSolve = null;
   paintPanel();
   if (!run.next) prefetch();
   const n = run.next;
@@ -148,6 +159,9 @@ function stopSession(): void {
   run.phase = 'idle';
   engine.cancel();
   clearTimeout(run.recogTimer);
+  clearTimeout(run.confirmTimer);
+  run.confirmingMistake = false;
+  run.beforeMistake = null;
   cancelAnimationFrame(run.frame);
   paintAll();
 }
@@ -158,21 +172,51 @@ function onStop(timeMs: number): void {
   const c = run.current;
   if (!c) return;
   run.timeMs = timeMs;
-  setCaseStats(c.key, recordTime(caseStats(c.key), timeMs));
+  run.beforeSolve = caseStats(c.key);
+  setCaseStats(c.key, recordTime(run.beforeSolve, timeMs));
   run.phase = 'result';
   paintPanel();
   paintTiles();
 }
 
+/** Press M once to ask, again to mean it. */
 function mistake(): void {
   const c = run.current;
-  if (!c || run.phase !== 'result') return;
-  // Undo the time just recorded and log a failure instead.
-  const s = caseStats(c.key);
-  const without: CaseStats = s.count ? { ...s, count: s.count - 1, sum: s.sum - run.timeMs, last: s.last.slice(0, -1) } : s;
-  setCaseStats(c.key, recordFail(without));
-  toast(`${c.name}: logged as a mistake.`);
-  void nextCase();
+  if (!c || run.phase !== 'result' || run.beforeMistake) return;
+  if (!run.confirmingMistake) {
+    run.confirmingMistake = true;
+    clearTimeout(run.confirmTimer);
+    run.confirmTimer = window.setTimeout(cancelMistake, 6000);
+    paintPanel();
+    return;
+  }
+  clearTimeout(run.confirmTimer);
+  run.confirmingMistake = false;
+  // Take back the time just recorded and log a failure instead — from the stats
+  // as they were before the attempt, so a fast mis-hit can't leave a phantom
+  // best behind. The case stays up: marking a mistake is not a reason to be
+  // moved off what you're drilling.
+  run.beforeMistake = caseStats(c.key);
+  setCaseStats(c.key, recordFail(run.beforeSolve ?? run.beforeMistake));
+  paintPanel();
+  paintTiles();
+}
+
+function cancelMistake(): void {
+  if (!run.confirmingMistake) return;
+  clearTimeout(run.confirmTimer);
+  run.confirmingMistake = false;
+  paintPanel();
+}
+
+/** Put back the time that the mistake replaced. */
+function undoMistake(): void {
+  const c = run.current;
+  if (!c || !run.beforeMistake) return;
+  setCaseStats(c.key, run.beforeMistake);
+  run.beforeMistake = null;
+  paintPanel();
+  paintTiles();
 }
 
 /* ------------------------------------------------------------ recognition */
@@ -261,6 +305,7 @@ function onKeyDown(e: KeyboardEvent): void {
   if (run.phase === 'result') {
     if (e.key === 'Enter' || e.key === 'n' || e.key === 'N') { e.preventDefault(); void nextCase(); }
     else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); mistake(); }
+    else if (e.key === 'Escape' && run.confirmingMistake) { e.preventDefault(); cancelMistake(); }
     else if (e.key === 's' || e.key === 'S') { e.preventDefault(); run.showAlg = !run.showAlg; paintPanel(); }
   } else if (run.phase === 'recog-ask' && /^[1-4]$/.test(e.key)) {
     e.preventDefault();
@@ -355,7 +400,12 @@ function paintPanel(): void {
           <div class="text-dim trainer-stats num">${esc(statsLine(c))}</div>
           ${run.showAlg ? `<div class="mono trainer-alg">${alg ? esc(alg) : '<span class="text-dim">No alg yet: add yours in Algorithms.</span>'}</div>` : ''}
           <div class="trainer-actions">
-            <button type="button" class="btn btn-sm" data-action="mistake">Mistake <kbd>M</kbd></button>
+            ${run.beforeMistake
+              ? '<button type="button" class="btn btn-sm is-warn on" data-action="undo-mistake">Mistake logged · undo</button>'
+              : run.confirmingMistake
+                ? `<button type="button" class="btn btn-danger btn-sm" data-action="mistake">Log a mistake? <kbd>M</kbd></button>
+                   <button type="button" class="btn btn-sm" data-action="cancel-mistake">Keep the time <kbd>Esc</kbd></button>`
+                : '<button type="button" class="btn btn-sm" data-action="mistake">Mistake <kbd>M</kbd></button>'}
             <button type="button" class="btn btn-sm" data-action="show-alg">${run.showAlg ? 'Hide alg' : 'Show alg'} <kbd>S</kbd></button>
             <button type="button" class="btn btn-primary btn-sm" data-action="next">Next <kbd>↵</kbd></button>
           </div>
@@ -367,6 +417,7 @@ function paintPanel(): void {
     body = `
       <div class="recog">
         <div class="recog-diagram ${run.phase === 'recog-show' || run.phase === 'recog-answer' ? '' : 'is-hidden'}">${run.recogDiagram}</div>
+        <div class="recog-below">
         ${run.phase === 'recog-show' ? '<p class="text-dim">Recognise it…</p>' : ''}
         ${run.phase === 'recog-ask' ? (input
           ? `<form class="recog-type" data-no-timer><input name="recog-name" placeholder="Case name (e.g. T, Ga, OLL 27)" autocomplete="off" spellcheck="false"><button class="btn btn-primary" type="submit">Answer</button></form>`
@@ -375,6 +426,7 @@ function paintPanel(): void {
           <p class="recog-verdict ${ok ? 'text-good' : 'text-bad'}">${ok ? 'Right' : 'Not quite'}: <strong>${esc(c.name)}</strong> · <span class="num">${esc(fmt(run.recogMs))}</span></p>
           <div class="text-dim trainer-stats num">${esc(statsLine(c))}</div>
           <div class="trainer-actions"><button type="button" class="btn btn-primary btn-sm" data-action="next-recog">Next <kbd>↵</kbd></button></div>` : ''}
+        </div>
       </div>`;
   }
   panel.innerHTML = `
@@ -556,6 +608,8 @@ function act(action: string, t: HTMLElement): void {
     case 'stop': stopSession(); break;
     case 'next': void nextCase(); break;
     case 'mistake': mistake(); break;
+    case 'cancel-mistake': cancelMistake(); break;
+    case 'undo-mistake': undoMistake(); break;
     case 'show-alg': run.showAlg = !run.showAlg; paintPanel(); break;
     case 'recog': answerRecog(set.cases.find((c) => c.key === t.dataset.key) ?? null); break;
     case 'next-recog': nextRecog(); break;

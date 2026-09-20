@@ -1,0 +1,4 @@
+Bundled license information:
+
+aes-js/index.js:
+  /*! MIT License. Copyright 2015-2018 Richard Moore <me@ricmoo.com>. See LICENSE.txt. */

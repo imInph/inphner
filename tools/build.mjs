@@ -67,6 +67,60 @@ function stamp() {
   if (after !== before) writeFileSync(htmlPath, after);
 }
 
+/**
+ * Build the two extra bundles that are not part of the app's module graph:
+ * the Tools solver worker, and the service worker (which gets the build hash
+ * and the two file lists it precaches injected).
+ */
+async function buildWorkers() {
+  const jsDir = join(pub, 'js');
+  const chunks = readdirSync(join(jsDir, 'chunks'))
+    .filter((f) => f.endsWith('.js'))
+    .map((f) => `js/chunks/${f}`);
+  const shell = [
+    './', 'index.html', 'app.css', 'js/main.js', 'js/solver-worker.js', 'js/stackmat-worklet.js',
+    'manifest.webmanifest',
+    'icons/favicon.svg', 'icons/favicon-32.png', 'icons/apple-touch-icon.png',
+    'icons/icon-512.png', 'icons/icon-maskable-512.png',
+  ];
+  for (const [entry, out] of [
+    ['src/tools/solver-worker.ts', 'solver-worker.js'],
+    ['src/timer/stackmat-worklet.ts', 'stackmat-worklet.js'],
+  ]) {
+    await esbuild.build({
+      entryPoints: [join(root, entry)],
+      outfile: join(jsDir, out),
+      bundle: true,
+      format: 'iife',
+      target: 'es2022',
+      minify: !watchMode,
+      logLevel: 'warning',
+    });
+  }
+
+  // One cache per build: the hash covers the entry, the worker, the stylesheet
+  // and every chunk name (each of which is content-hashed itself).
+  const build = createHash('sha256')
+    .update(hashOf(join(jsDir, 'main.js')) + hashOf(join(jsDir, 'solver-worker.js'))
+      + hashOf(join(jsDir, 'stackmat-worklet.js')) + hashOf(join(pub, 'app.css')) + chunks.join(','))
+    .digest('hex').slice(0, 10);
+
+  await esbuild.build({
+    entryPoints: [join(root, 'src/sw.ts')],
+    outfile: join(pub, 'sw.js'),
+    bundle: true,
+    format: 'iife',
+    target: 'es2022',
+    minify: !watchMode,
+    logLevel: 'warning',
+    define: {
+      __BUILD__: JSON.stringify(build),
+      __SHELL__: JSON.stringify(shell),
+      __CHUNKS__: JSON.stringify(chunks),
+    },
+  });
+}
+
 function sync() {
   try {
     execFileSync('node', [join(root, 'tools/sync-xampp.mjs')], { stdio: 'inherit' });
@@ -85,7 +139,7 @@ if (watchMode) {
           if (result.errors.length) return;
           aliasWorker();
           stamp();
-          sync();
+          void buildWorkers().then(sync);
           console.log(`[inphner] rebuilt ${new Date().toLocaleTimeString()}`);
         });
       },
@@ -105,5 +159,6 @@ if (watchMode) {
   await esbuild.build(options);
   aliasWorker();
   stamp();
-  console.log('[inphner] built public/js');
+  await buildWorkers();
+  console.log('[inphner] built public/js + workers');
 }

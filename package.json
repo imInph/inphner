@@ -1,6 +1,6 @@
 {
   "name": "inphner",
-  "version": "1.0.0-pre",
+  "version": "1.0.0",
   "private": true,
   "description": "Speedcubing timer and trainer in inphub's Glass design.",
   "type": "module",
@@ -16,6 +16,7 @@
     "chart.js": "4.5.1",
     "cubing": "0.63.6",
     "esbuild": "0.28.2",
+    "gan-web-bluetooth": "3.0.2",
     "typescript": "7.0.2"
   }
 }
