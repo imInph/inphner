@@ -12,7 +12,7 @@
  * ready" and only then sends 'skip-waiting'. Taking over silently would leave
  * the open page asking for chunks that no longer exist.
  */
-import { cacheName, staleCaches, strategyFor } from './pwa/strategy.ts';
+import { cacheName, orderFor, staleCaches, strategyFor, type Strategy } from './pwa/strategy.ts';
 
 declare const __BUILD__: string;
 declare const __SHELL__: string[];
@@ -29,7 +29,13 @@ declare const self: {
   skipWaiting(): Promise<void>;
   clients: { claim(): Promise<void> };
   registration: { scope: string };
+  navigator?: { onLine?: boolean };
 };
+
+/** Defensive: anything but an explicit `false` counts as online. */
+function isOnline(): boolean {
+  return self.navigator?.onLine !== false;
+}
 
 const CACHE = cacheName(__BUILD__);
 const SHELL = __SHELL__;
@@ -64,23 +70,24 @@ async function store(request: Request, res: Response): Promise<void> {
   await cache.put(request, res.clone());
 }
 
-/** Cache first: these URLs are content-hashed or ?v=-stamped, so a hit is never stale. */
-async function cacheFirst(request: Request): Promise<Response> {
-  const hit = await fromCache(request);
-  if (hit) return hit;
-  const res = await fetch(request);
-  void store(request, res).catch(() => {});
-  return res;
-}
-
 /**
- * Network first: the shell documents, so a new build is picked up at once.
+ * One handler for everything we cache. `orderFor` decides what it reaches for
+ * first: content-hashed files are always cache-first, and the shell documents
+ * are network-first only while we are online, so a new build is seen at once
+ * without an offline launch touching the network at all.
+ *
  * A 404 or a 500 counts as a failure too — a server that is up but broken
  * shouldn't take the app down when we hold a good copy.
  */
-async function networkFirst(request: Request, fallback?: string): Promise<Response> {
-  const cached = async () => await fromCache(request)
+async function handle(request: Request, strategy: Strategy, fallback?: string): Promise<Response> {
+  const cached = async (): Promise<Response | undefined> => await fromCache(request)
     ?? (fallback ? await fromCache(new Request(fallback)) : undefined);
+
+  if (orderFor(strategy, isOnline()) === 'cache-first') {
+    const hit = await cached();
+    if (hit) return hit;
+    // Nothing held. The network is the only hope, alert or not.
+  }
   try {
     const res = await fetch(request);
     if (res.ok) {
@@ -110,13 +117,11 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const strategy = strategyFor(e.request, scope);
   if (strategy === 'passthrough') return;
-  if (strategy === 'cached') e.respondWith(cacheFirst(e.request));
-  else if (strategy === 'shell') e.respondWith(networkFirst(e.request, shellDoc));
-  else e.respondWith(networkFirst(e.request));
+  e.respondWith(handle(e.request, strategy, strategy === 'shell' ? shellDoc : undefined));
 });
 
 self.addEventListener('message', (e) => {
   const type = (e.data as { type?: string } | null)?.type;
-  if (type === 'warm') e.waitUntil(fill(CHUNKS));
+  if (type === 'warm') { if (isOnline()) e.waitUntil(fill(CHUNKS)); }
   else if (type === 'skip-waiting') void self.skipWaiting();
 });

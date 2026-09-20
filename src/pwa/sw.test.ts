@@ -44,7 +44,9 @@ function harness() {
     keys: async () => [...store.keys()],
     delete: async (name: string) => store.delete(name),
   };
+  let fetches = 0;
   const fetchMock = async (r: string | { url: string }): Promise<Response> => {
+    fetches++;
     if (!online) throw new TypeError('Failed to fetch');
     const url = key(r);
     const body = server.get(url.split('?')[0]!);
@@ -57,6 +59,8 @@ function harness() {
     skipWaiting: async () => {},
     clients: { claim: async () => {} },
     registration: { scope: SCOPE },
+    // Airplane mode: the worker reads this to stay off the network entirely.
+    navigator: { get onLine() { return online; } },
   };
   const ctx = createContext({
     self, caches, fetch: fetchMock, Response, URL, console,
@@ -71,6 +75,8 @@ function harness() {
     server,
     store,
     setOnline: (v: boolean) => { online = v; },
+    fetches: () => fetches,
+    resetFetches: () => { fetches = 0; },
     async fire(type: 'install' | 'activate'): Promise<void> {
       const e = event();
       listeners.get(type)!(e);
@@ -153,6 +159,37 @@ test('offline, a reload is answered from the cache', async () => {
 
   const js = await h.request(`${SCOPE}js/main.js?v=abc123`);
   assert.equal(await js!.text(), 'body:js/main.js');
+});
+
+test('offline, a cached launch never touches the network', async () => {
+  // The bug this guards: every launch asked the network first, so an iPhone in
+  // airplane mode raised "Turn Off Airplane Mode or Use Wi-Fi to Access Data"
+  // over a home-screen app that was about to work perfectly from the cache.
+  const h = seeded();
+  await h.fire('install');
+  await h.fire('activate');
+  await h.message({ type: 'warm' });
+  h.setOnline(false);
+  h.resetFetches();
+
+  const page = await h.request(SCOPE, { mode: 'navigate' });
+  assert.equal(await page!.text(), 'body:root');
+  const manifest = await h.request(`${SCOPE}manifest.webmanifest`);
+  assert.equal(await manifest!.text(), 'body:manifest.webmanifest');
+  await h.request(`${SCOPE}app.css?v=abc123`);
+  await h.message({ type: 'warm' });
+
+  assert.equal(h.fetches(), 0, 'not one request left the device');
+});
+
+test('offline with nothing cached, the network is still the last resort', async () => {
+  const h = seeded();
+  await h.fire('install');
+  h.setOnline(false);
+  h.resetFetches();
+  // Never cached, so failing loudly beats answering with nothing.
+  await assert.rejects(() => h.request(`${SCOPE}js/chunks/never-seen.js`) as Promise<unknown>);
+  assert.equal(h.fetches(), 1);
 });
 
 test('a broken server is treated like no server at all', async () => {

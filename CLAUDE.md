@@ -81,7 +81,7 @@ scrambles, the 3x3 solver behind trainer setups, `<twisty-player>`), **Chart.js*
 
 ### Tests cost session budget — be proportionate
 
-There are 165 tests and `npm test` prints a line for each. Running the whole suite after every
+There are 168 tests and `npm test` prints a line for each. Running the whole suite after every
 small edit is what burns a session's usage before the actual work gets done; the same goes for
 writing tests nobody needs. While iterating, run the one file you touched, and filter the output:
 
@@ -385,7 +385,7 @@ Quick self-check in the console:
 `getComputedStyle(document.body).backgroundColor` → `rgba(0, 0, 0, 0)`;
 `document.documentElement.scrollWidth <= innerWidth` at 375px.
 
-## Hosting and the backup reminder (v1.1.0)
+## Hosting and the backup reminder (v1.1.1)
 
 - **GitHub Pages** serves `public/` on every push to main (`.github/workflows/pages.yml`). It
   publishes the folder **as committed** and never rebuilds, so `npm run build` before committing
@@ -403,12 +403,30 @@ Quick self-check in the console:
   `trainerBusy()` are both false** — the reminder must never land on a solve. A browser that
   refused to protect the data drops "overdue" from 30 days to 7.
 
-## Release status (v1.1.0)
+### Offline must not touch the network (v1.1.1)
+
+Found on a real iPhone: the app opened perfectly from the cache in airplane
+mode, and iOS then threw **"Turn Off Airplane Mode or Use Wi-Fi to Access
+Data"** over the top of it. Nothing had failed — a home-screen app that *tries*
+a request with no network gets that system alert, and we were making three
+tries on every launch: the network-first navigation, the manifest, and the
+`register()` update check.
+
+`orderFor(strategy, online)` in `pwa/strategy.ts` is PURE and tested: offline,
+the shell documents go cache-first like everything else, so a cached launch
+makes **zero** requests (`sw.test.ts` counts them and asserts 0). With nothing
+cached it still falls through to the network — an alert beats a blank page.
+`register.ts` skips registration entirely when offline *and* already
+controlled, and re-runs on the `online` event; warming is skipped too.
+
+**Anything added to the offline path must keep that count at zero.**
+
+## Release status (v1.1.1)
 
 Version label in three places, keep them in step: the sidebar chip (index.html), the console
 "ready" line (`VERSION` in main.ts) and package.json.
 
-**Done:** steps 1–11 (see Build status). 165 unit tests (`npm test`), each step checked in the
+**Done:** steps 1–11 (see Build status). 168 unit tests (`npm test`), each step checked in the
 browser pane at desktop size and 375px.
 
 **Next:**

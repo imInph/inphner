@@ -30,6 +30,22 @@ export function strategyFor(req: RequestLike, scope: string): Strategy {
   return 'cached';
 }
 
+/** What a handler reaches for first. */
+export type Order = 'network-first' | 'cache-first';
+
+/**
+ * Offline, a network-first fetch can only fail — and on iOS a failed request
+ * from a home-screen app raises a system "Turn Off Airplane Mode or Use
+ * Wi-Fi" alert over the top of the running app. So when the platform tells us
+ * it is offline we go straight to the cache and never touch the network. The
+ * caller still falls through to a fetch when it holds nothing at all: an
+ * alert beats a blank page.
+ */
+export function orderFor(strategy: Strategy, online: boolean): Order {
+  if (strategy === 'cached') return 'cache-first';
+  return online ? 'network-first' : 'cache-first';
+}
+
 export function cacheName(build: string): string {
   return `inphner-${build}`;
 }

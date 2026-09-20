@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { cacheName, staleCaches, strategyFor } from './strategy.ts';
+import { cacheName, staleCaches, strategyFor, orderFor } from './strategy.ts';
 
 const SCOPE = 'http://localhost/inphner/';
 const at = (url: string, extra: { method?: string; mode?: string } = {}) =>
@@ -39,4 +39,14 @@ test('only our own caches from other builds are stale', () => {
   const names = ['inphner-aaa', 'inphner-bbb', 'inphub-assets', 'workbox'];
   assert.deepEqual(staleCaches(names, 'bbb'), ['inphner-aaa']);
   assert.equal(cacheName('bbb'), 'inphner-bbb');
+});
+
+test('offline, only content-hashed files were already cache-first; now the shell is too', () => {
+  assert.equal(orderFor('cached', true), 'cache-first');
+  assert.equal(orderFor('cached', false), 'cache-first');
+  assert.equal(orderFor('shell', true), 'network-first');
+  assert.equal(orderFor('fresh', true), 'network-first');
+  // Offline these must not reach out: on iOS a doomed fetch raises a system alert.
+  assert.equal(orderFor('shell', false), 'cache-first');
+  assert.equal(orderFor('fresh', false), 'cache-first');
 });
