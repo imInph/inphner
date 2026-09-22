@@ -385,7 +385,7 @@ Quick self-check in the console:
 `getComputedStyle(document.body).backgroundColor` → `rgba(0, 0, 0, 0)`;
 `document.documentElement.scrollWidth <= innerWidth` at 375px.
 
-## Hosting and the backup reminder (v1.1.1)
+## Hosting and the backup reminder (since v1.1.1)
 
 - **GitHub Pages** serves `public/` on every push to main (`.github/workflows/pages.yml`). It
   publishes the folder **as committed** and never rebuilds, so `npm run build` before committing
@@ -403,7 +403,7 @@ Quick self-check in the console:
   `trainerBusy()` are both false** — the reminder must never land on a solve. A browser that
   refused to protect the data drops "overdue" from 30 days to 7.
 
-### Offline must not touch the network (v1.1.1)
+### Offline must not touch the network (found in v1.1.1)
 
 Found on a real iPhone: the app opened perfectly from the cache in airplane
 mode, and iOS then threw **"Turn Off Airplane Mode or Use Wi-Fi to Access
