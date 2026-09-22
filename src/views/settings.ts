@@ -18,6 +18,7 @@ import { icon } from '../ui/icons.ts';
 import { toast } from '../ui/toast.ts';
 import { handlePrefAction, handlePrefInput, prefsCards } from './settings-prefs.ts';
 import { dataCard, handleDataAction } from './data-io.ts';
+import { SOURCE_URL, VERSION } from '../version.ts';
 
 const LABEL: Record<string, string> = {
   blue: 'Blue', indigo: 'Indigo', purple: 'Purple', pink: 'Pink', red: 'Red', orange: 'Orange',
@@ -97,6 +98,28 @@ function appearanceCard(d: Draft): string {
     </section>`;
 }
 
+/**
+ * About, and the source offer.
+ *
+ * The link is required, not decorative: inphner is AGPL-3.0, and section 13
+ * says a version people reach over a network has to prominently offer them its
+ * Corresponding Source. Every visitor's browser is handed the whole app, so
+ * that obligation is this deployment's too, not only a fork's. Keep it.
+ */
+function aboutCard(): string {
+  return `
+    <section class="card span-all" style="--i:9">
+      <div class="card-head">
+        <h3>About</h3>
+        <small>inphner v${esc(VERSION)}</small>
+      </div>
+      <p>Free software under the
+        <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU AGPL-3.0</a>.
+        Modify it and run it for others, and you owe them the source too.</p>
+      <p><a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a></p>
+    </section>`;
+}
+
 function render(container: HTMLElement): void {
   if (!draft) return;
   const focused = document.activeElement as HTMLElement | null;
@@ -106,7 +129,7 @@ function render(container: HTMLElement): void {
         : focused.dataset.action ? `[data-action="${focused.dataset.action}"]`
           : focused.dataset.role ? `[data-role="${focused.dataset.role}"]` : null)
     : null;
-  container.innerHTML = `<div class="grid settings-grid">${appearanceCard(draft)}${prefsCards()}${dataCard()}</div>`;
+  container.innerHTML = `<div class="grid settings-grid">${appearanceCard(draft)}${prefsCards()}${dataCard()}${aboutCard()}</div>`;
   if (refocus) {
     const el = container.querySelector<HTMLElement>(refocus);
     el?.focus({ preventScroll: true });

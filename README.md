@@ -65,4 +65,4 @@ on every change. See `CLAUDE.md` for architecture and conventions.
 
 ## License
 
-[MIT](LICENSE) © imInph
+[AGPL-3.0](LICENSE) © imInph

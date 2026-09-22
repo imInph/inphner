@@ -30,6 +30,7 @@ import { backupOverdue, nudgeMessage, shouldNudge, type BackupState } from './ba
 import { currentSession, initStore, storageProtection } from './store.ts';
 import { warm } from './scramble/generator.ts';
 import { openSessionPicker, renderSessionPill } from './views/session-picker.ts';
+import { VERSION } from './version.ts';
 
 declare global {
   interface Window {
@@ -42,7 +43,7 @@ declare global {
   }
 }
 
-const VERSION = '1.1.1';
+
 
 /* ------------------------------------------------------------------ sidebar */
 
