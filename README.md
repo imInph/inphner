@@ -1,5 +1,7 @@
 # inphner
 
+You can access inphner [here](https://iminph.github.io/inphner/).
+
 A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer rebuilt with a
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
 IndexedDB in your browser), in a frosted "Glass" design.
