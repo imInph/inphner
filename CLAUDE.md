@@ -421,7 +421,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 
 **Anything added to the offline path must keep that count at zero.**
 
-## Release status (v1.1.1)
+## Release status (v1.2.0)
 
 Version label in three places, keep them in step: the sidebar chip (index.html), the console
 "ready" line (`VERSION` in main.ts) and package.json.
