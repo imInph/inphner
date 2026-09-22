@@ -423,8 +423,12 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 
 ## Release status (v1.2.0)
 
-Version label in three places, keep them in step: the sidebar chip (index.html), the console
-"ready" line (`VERSION` in main.ts) and package.json.
+Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
+(the console "ready" line and Settings' About card both read it), the sidebar chip in
+`public/index.html`, and the **Status:** line at the top of README.md.
+
+That last one is the one that drifts. It sat at v1.0.0 through four releases because this list
+used to say three places and never named it. Check it on every bump.
 
 **Done:** steps 1–11 (see Build status). 168 unit tests (`npm test`), each step checked in the
 browser pane at desktop size and 375px.

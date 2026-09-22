@@ -6,7 +6,7 @@ A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
 IndexedDB in your browser), in a frosted "Glass" design.
 
-**Status: v1.0.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
+**Status: v1.2.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
 trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smart cube input
 (both marked experimental until they've met real hardware).
 
