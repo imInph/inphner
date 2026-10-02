@@ -32,6 +32,8 @@ import { warm } from './scramble/generator.ts';
 import { openSessionPicker, renderSessionPill } from './views/session-picker.ts';
 import { VERSION } from './version.ts';
 
+const HOME_TITLE = 'inphner · Speedcubing Timer, Stats & Algorithm Trainer';
+
 declare global {
   interface Window {
     inphnerToggleTheme?: () => void;
@@ -87,7 +89,9 @@ function activate(route: Route): void {
     else el.removeAttribute('aria-current');
   });
   document.getElementById('page-title')!.textContent = meta.label;
-  document.title = meta.id === DEFAULT_VIEW ? 'inphner' : `${meta.label} · inphner`;
+  // The home title is what search results show, so it says what inphner is (keep it equal to
+  // the <title> in index.html).
+  document.title = meta.id === DEFAULT_VIEW ? HOME_TITLE : `${meta.label} · inphner`;
 
   const container = document.getElementById(`view-${meta.id}`)!;
   if (meta.id === 'timer') renderTimer(container);

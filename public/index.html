@@ -3,8 +3,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>inphner</title>
-    <meta name="description" content="Speedcubing timer, session stats and algorithm trainer.">
+    <title>inphner · Speedcubing Timer, Stats &amp; Algorithm Trainer</title>
+    <meta name="description" content="A free Rubik's cube timer with WCA inspection, every WCA event, session stats (ao5, ao12, ao100), charts, a PLL/OLL/F2L trainer and csTimer import. Works offline and on your phone.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="inphner">
+    <meta property="og:title" content="inphner · Speedcubing Timer, Stats &amp; Algorithm Trainer">
+    <meta property="og:description" content="A free Rubik's cube timer with session stats, charts, an algorithm trainer and csTimer import. Works offline and on your phone.">
+    <meta name="twitter:card" content="summary">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "inphner",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any (web browser)",
+        "offers": { "@type": "Offer", "price": "0" },
+        "description": "A speedcubing timer for the Rubik's cube and every WCA event: random-state scrambles, WCA inspection, session stats (mo3, ao5, ao12, ao100), charts, PB tracking, a PLL/OLL/F2L algorithm trainer, cross and EOLine hints, and csTimer import. Free, open source, and works offline."
+    }
+    </script>
     <meta name="color-scheme" content="dark light">
     <meta name="theme-color" content="#0b0d12">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -53,7 +69,7 @@
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="stylesheet" href="app.css?v=59c6e415b3">
-    <script type="module" src="js/main.js?v=71e7a151db"></script>
+    <script type="module" src="js/main.js?v=e4f2c257e8"></script>
 </head>
 <body>
     <div class="wallpaper" aria-hidden="true"></div>
@@ -101,7 +117,7 @@
 
     <div id="toasts" class="toasts" aria-live="polite"></div>
 
-    <noscript><div class="boot-error">inphner needs JavaScript to run.</div></noscript>
+    <noscript><div class="boot-error">inphner is a free speedcubing timer: random-state scrambles for every WCA event, WCA inspection, session stats (ao5, ao12, ao100), charts, a PLL/OLL/F2L algorithm trainer and csTimer import. It needs JavaScript to run.</div></noscript>
     <script>
         // A module that fails to link fails silently: no view renders. Say so.
         window.addEventListener('error', function (e) {
