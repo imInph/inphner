@@ -392,9 +392,12 @@ Quick self-check in the console:
 
 - **GitHub Pages** serves `public/` on every push to main (`.github/workflows/pages.yml`). It
   publishes the folder **as committed** and never rebuilds, so `npm run build` before committing
-  is what keeps the live site honest. Live at `https://iminph.github.io/inphner/`. Every path in
-  `index.html`, the manifest and the service-worker registration is **relative**, which is why the
-  app works unchanged at `/inphner/` on XAMPP and at the Pages subpath.
+  is what keeps the live site honest. Live at **`https://inphner.com`** (custom domain, registered
+  at Cloudflare, DNS only / not proxied, so GitHub issues the certificate; the old
+  `iminph.github.io/inphner/` redirects there). Every path in `index.html`, the manifest and the
+  service-worker registration is **relative**, which is why the app works unchanged at
+  `/inphner/` on XAMPP and at the domain root. `index.html` names `https://inphner.com/` as its
+  canonical URL.
 - **`navigator.storage.persist()`** is asked for once per boot (`db/idb.ts`, called from
   `initStore`); `persisted()` short-circuits the re-ask. The answer is kept in `store.ts`
   (`storageProtection()` / `storageProtectedNow()`) because it decides both the Data card's
