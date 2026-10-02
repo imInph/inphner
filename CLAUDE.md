@@ -52,7 +52,7 @@ outstanding acceptance pass (see Release status). The rules that still hold:
 | Trainer data | PLL/OLL/F2L ship with standard algs the author is certain of, blank otherwise. COLL has **42** cases (40 + O adj/diag). CMLL/CLL/EG/ZBLL get correct names and groups, empty algs, and stay disabled until filled in. |
 | Post-solve keys | Both: plain keys (↵ 2 D C ⌫) while the post-solve row shows, and `Alt+1/2/3` / `Alt+Z` whenever idle. |
 | Event icons | The per-event **SVGs** from cubing/icons 3.0.5 (MIT), fetched from the GitHub tag into `src/data/event-icons/` (the npm package ships only a font). `node tools/event-icons.mjs` regenerates `src/data/event-icons.ts`. |
-| Training events (author's call) | `cross` and `roux` use a normal random-state 3x3 scramble (separate sessions/stats for the practice); `f2l` = last layer solved, rest random (the spec's "LL-solved scramble"); `ll` = F2L solved, random LL; `lse` = random ⟨M,U⟩ with U turns ≡ 0 mod 4 so corners stay solved; 2GEN/3GEN/custom length = random moves; PLL/OLL attack and `none` have no scramble. |
+| Training events (author's call) | `cross` and `roux` use a normal random-state 3x3 scramble (separate sessions/stats for the practice); `f2l` = the cross solved in the chosen **cross colour**, everything else (LL included) random, or a plain random scramble with the "Cross solved" toggle off; `ll` = F2L solved on the cross colour, random opposite layer (owner's call: the old `f2l` kept the white layer solved, i.e. a solved *first* layer); the Cross/F2L previews dim the pieces the step doesn't use (`importantStickers()` in `scramble/net.ts`); `f2l`/`ll` default to **no inspection** (switch on their practice row; `cross` keeps it); `lse` = random ⟨M,U⟩ with U turns ≡ 0 mod 4 so corners stay solved; 2GEN/3GEN/custom length = random moves; PLL/OLL attack and `none` have no scramble. |
 | Megaminx | One line per WCA row (7 lines), an exception to the "≤ 5 lines" sizing rule. |
 | Stats maths (author's call) | Singles are truncated to the display precision BEFORE averaging (WCA records hundredths); σ is the population standard deviation of non-DNF results. |
 | FMC | Stored as `timeMs = moves × 1000`; notation per WCA 12a (no slice moves), max 80 moves, validated with cubing.js (`experimentalIsSolved`, rotations ignored). The attempt survives a reload. |
@@ -81,7 +81,7 @@ scrambles, the 3x3 solver behind trainer setups, `<twisty-player>`), **Chart.js*
 
 ### Tests cost session budget — be proportionate
 
-There are 168 tests and `npm test` prints a line for each. Running the whole suite after every
+There are 170 tests and `npm test` prints a line for each. Running the whole suite after every
 small edit is what burns a session's usage before the actual work gets done; the same goes for
 writing tests nobody needs. While iterating, run the one file you touched, and filter the output:
 
@@ -170,6 +170,9 @@ namespaces (`erasableSyntaxOnly`, which Node's type stripping requires).
 - The key/touch that stopped a solve must be released before anything can arm again
   (`awaitRelease` in the engine; `stopKey` in the view maps the matching keyup/pointerup).
 - A pointer press that stops the timer suppresses the click that follows it.
+- **A mouse never starts the timer** (owner's call): `pointerType === 'mouse'` is ignored on the
+  stage, so a stray click near the post-solve buttons can't start an inspection. Touch and pen
+  still start it; a mouse can still stop a running solve. Esc cancels a hold or an inspection.
 - `timerBusy()` (armed, inspecting or running) disables every other shortcut; main.ts checks it.
 - `paint()` sets colours by class swap only; `.time` transitions **only** `transform`.
 - `<html data-view="timer">` turns off overscroll (pull-to-refresh) while the timer is shown.
@@ -421,7 +424,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 
 **Anything added to the offline path must keep that count at zero.**
 
-## Release status (v1.2.0)
+## Release status (v1.3.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in
@@ -430,7 +433,7 @@ Version label in four places, keep them in step: `package.json`, `VERSION` in `s
 That last one is the one that drifts. It sat at v1.0.0 through four releases because this list
 used to say three places and never named it. Check it on every bump.
 
-**Done:** steps 1–11 (see Build status). 168 unit tests (`npm test`), each step checked in the
+**Done:** steps 1–11 (see Build status). 170 unit tests (`npm test`), each step checked in the
 browser pane at desktop size and 375px.
 
 **Next:**
@@ -457,7 +460,7 @@ OLL slots / adding algs.
   title, clock, theme), `g x` hotkeys, the `?` sheet, toasts, modal/bottom sheet, the Settings →
   Appearance card, the first-run card, placeholder views, icons.
 - [x] **2. Timer.** `TimerEngine` (idle/inspecting/running × none/tap/armed/ready), keyboard (space,
-  both Ctrls, any key stops) + touch/pen/mouse on the stage, WCA inspection with auto +2/DNF and
+  both Ctrls, any key stops) + touch/pen on the stage (a mouse only stops, never starts: owner's call), WCA inspection with auto +2/DNF and
   8/12 s beep/voice alerts, focus mode (`<html data-focus>` fades chrome, `data-running` pauses the
   drift), landing spring, post-solve row + keys, typing mode, multi-phase splits, wake lock,
   aria-live. Settings → Timer and Inspection cards.

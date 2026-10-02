@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomMoves, lseScramble, quarterTurns, normalizeScramble, scrambleRows, scrambleLength } from './moves.ts';
 import { solvedCube, applyScramble, faceGrids, isSolved, parseMove, cubeSize } from './nxn.ts';
-import { randomSubsetState, permutationParity, isSolvedState, U_EDGES, U_CORNERS, F2L_EDGES, F2L_CORNERS } from './states.ts';
+import { randomSubsetState, permutationParity, isSolvedState, f2lSubset, llSubset } from './states.ts';
 
 /** Deterministic PRNG (mulberry32). */
 function rng(seed: number) {
@@ -118,7 +118,7 @@ test('nxn: wide and slice moves', () => {
 
 test('subset states: only the chosen slots move, and the state is solvable', () => {
   for (let seed = 1; seed < 300; seed++) {
-    for (const [es, cs] of [[U_EDGES, U_CORNERS], [F2L_EDGES, F2L_CORNERS]] as const) {
+    for (const { edges: es, corners: cs } of [llSubset('U'), f2lSubset('U'), llSubset('R'), f2lSubset('F')]) {
       const s = randomSubsetState([...es], [...cs], rng(seed));
       s.EDGES.pieces.forEach((p, i) => { if (!es.includes(i)) { assert.equal(p, i); assert.equal(s.EDGES.orientation[i], 0); } });
       s.CORNERS.pieces.forEach((p, i) => { if (!cs.includes(i)) { assert.equal(p, i); assert.equal(s.CORNERS.orientation[i], 0); } });
@@ -127,5 +127,26 @@ test('subset states: only the chosen slots move, and the state is solvable', () 
       assert.equal(s.CORNERS.orientation.reduce((a, b) => a + b, 0) % 3, 0);
     }
   }
-  assert.ok(!isSolvedState(randomSubsetState(U_EDGES, U_CORNERS, rng(7))));
+  assert.ok(!isSolvedState(randomSubsetState(llSubset('U').edges, llSubset('U').corners, rng(7))));
+});
+
+test('preview focus: only the pieces a practice step needs stay lit', async () => {
+  const { importantStickers } = await import('./net.ts');
+  const lit = (m: Record<string, boolean[][]>) => Object.values(m).flat(2).filter(Boolean).length;
+  const solved = faceGrids(solvedCube(3));
+  // Cross: 4 edges × 2 stickers + 6 centres.
+  assert.equal(lit(importantStickers(solved, { step: 'cross', colour: 'U' })), 14);
+  // F2L: everything but the 4 last-layer edges (8 stickers) and corners (12).
+  const f2l = importantStickers(solved, { step: 'f2l', colour: 'U' });
+  assert.equal(lit(f2l), 54 - 20);
+  assert.ok(f2l.D.flat().every((k, i) => k === (i === 4)), 'only the yellow centre is lit on D');
+  // Pieces are judged by colour, not slot: after R the white-red edge sits at BR.
+  const g = faceGrids((() => { const c = solvedCube(3); applyScramble(c, 'R'); return c; })());
+  const cross = importantStickers(g, { step: 'cross', colour: 'U' });
+  assert.equal(cross.U[1]![2], false, 'UR now holds green-red');
+  assert.equal(cross.R[1]![2], true, 'BR now holds white-red');
+  assert.equal(lit(cross), 14);
+  // Any colour: a green cross lights the four green edges.
+  assert.equal(lit(importantStickers(solved, { step: 'cross', colour: 'F' })), 14);
+  assert.equal(importantStickers(solved, { step: 'cross', colour: 'F' }).F[0]![1], true);
 });

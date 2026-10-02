@@ -9,14 +9,37 @@
  * CORNERS UFR URB UBL ULF DRF DFL DLB DBR; CENTERS U L F R B D.
  */
 import type { Rng } from './moves.ts';
+import type { Face } from './nxn.ts';
 
 export interface OrbitData { pieces: number[]; orientation: number[] }
 export interface State3 { EDGES: OrbitData; CORNERS: OrbitData }
 
-export const U_EDGES = [0, 1, 2, 3];
-export const U_CORNERS = [0, 1, 2, 3];
-export const F2L_EDGES = [4, 5, 6, 7, 8, 9, 10, 11];
-export const F2L_CORNERS = [4, 5, 6, 7];
+const EDGE_NAMES = ['UF', 'UR', 'UB', 'UL', 'DF', 'DR', 'DB', 'DL', 'FR', 'FL', 'BR', 'BL'];
+const CORNER_NAMES = ['UFR', 'URB', 'UBL', 'ULF', 'DRF', 'DFL', 'DLB', 'DBR'];
+export const OPPOSITE: Record<Face, Face> = { U: 'D', D: 'U', F: 'B', B: 'F', R: 'L', L: 'R' };
+
+const on = (names: string[], face: Face) => names.flatMap((n, i) => (n.includes(face) ? [i] : []));
+const all = (n: number) => [...Array(n).keys()];
+
+/*
+ * A scramble is applied in the WCA orientation (white top, green front); the
+ * solver then holds the cross colour on the bottom. So the subsets are named
+ * for the solver: the cross colour is the FIRST layer, its opposite the last.
+ */
+/** The four edge slots of a face's cross. */
+export function crossEdges(face: Face): number[] {
+  return on(EDGE_NAMES, face);
+}
+/** F2L practice: that colour's cross solved; every other edge and every corner moves. */
+export function f2lSubset(face: Face): { edges: number[]; corners: number[] } {
+  const cross = crossEdges(face);
+  return { edges: all(12).filter((i) => !cross.includes(i)), corners: all(8) };
+}
+/** Last-layer practice: the F2L of that colour solved; only the opposite layer moves. */
+export function llSubset(face: Face): { edges: number[]; corners: number[] } {
+  const ll = OPPOSITE[face];
+  return { edges: on(EDGE_NAMES, ll), corners: on(CORNER_NAMES, ll) };
+}
 
 function identity(n: number): OrbitData {
   return { pieces: Array.from({ length: n }, (_, i) => i), orientation: Array<number>(n).fill(0) };

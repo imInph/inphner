@@ -11,8 +11,9 @@
  *   cross, roux  a normal random-state 3x3 scramble; the event exists so the
  *                practice gets its own sessions and stats (solve only the cross /
  *                the first block). The cross solver hint (Tools) complements it.
- *   f2l          last layer solved, the rest random ("an LL-solved scramble").
- *   ll           F2L solved, a random last layer.
+ *   f2l          the white cross solved, everything else random (owner's call;
+ *                it used to keep the white layer solved, i.e. a solved first layer).
+ *   ll           the white F2L solved, a random yellow last layer.
  */
 
 export type Scrambler =
@@ -59,7 +60,7 @@ export const EVENTS: EventDef[] = [
   { id: '3gen', name: '3GEN ⟨R, U, F⟩', short: '3GEN', group: 'training', icon: '333', scrambler: { kind: 'moves', gen: '3gen' } },
   { id: 'roux', name: 'Roux first block', short: 'Roux block', group: 'training', icon: '333', scrambler: { kind: 'wca', id: '333' } },
   { id: 'cross', name: 'Cross only', short: 'Cross', group: 'training', icon: '333', scrambler: { kind: 'wca', id: '333' } },
-  { id: 'f2l', name: 'F2L only (last layer solved)', short: 'F2L', group: 'training', icon: '333', scrambler: { kind: 'subset', subset: 'f2l' } },
+  { id: 'f2l', name: 'F2L only (cross solved)', short: 'F2L', group: 'training', icon: '333', scrambler: { kind: 'subset', subset: 'f2l' } },
   { id: 'll', name: 'Last layer (random LL)', short: 'Last layer', group: 'training', icon: '333', scrambler: { kind: 'subset', subset: 'll' } },
   { id: 'pllatt', name: 'PLL attack', short: 'PLL attack', group: 'training', icon: '333', scrambler: { kind: 'none', note: 'All 21 PLLs in a row, from solved.' } },
   { id: 'ollatt', name: 'OLL attack', short: 'OLL attack', group: 'training', icon: '333', scrambler: { kind: 'none', note: 'All 57 OLLs in a row, from solved.' } },

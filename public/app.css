@@ -761,13 +761,19 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: var(--focu
    ========================================================================== */
 /* No pull-to-refresh / rubber-banding while the timer is on screen. */
 html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: none; }
+:root { --time-size: clamp(4.5rem, 14vw, 11rem); }
 #view-timer:not([hidden]) { display: flex; flex-direction: column; flex: 1; padding-bottom: 12px; }
 .timer-view { display: flex; flex-direction: column; flex: 1; gap: 12px; min-height: 0; }
 
 /* The touch surface: everything below the scramble. Its height never depends
    on what the time shows, so starting/stopping shifts nothing. */
 .timer-stage {
-    position: relative; flex: 1; min-height: clamp(220px, 30vh, 460px);
+    position: relative; flex: 1;
+    /* Tall enough for the time AND the post-solve row hanging under it: the row
+       is out of flow, so on a short window it used to land on the stat strip.
+       The time is centred, so the row's height (~61px) counts twice. */
+    min-height: max(clamp(220px, 30vh, 460px), calc(var(--time-size) * 1.02 + 2vh + 150px));
+    min-height: max(clamp(220px, 30vh, 460px), calc(var(--time-size) * 1.02 + 2dvh + 150px));
     display: grid; place-items: center;
     touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
     overscroll-behavior: none; -webkit-tap-highlight-color: transparent;
@@ -783,7 +789,7 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 
 .time {
     font-family: var(--font-rounded); font-weight: 720; font-variant-numeric: tabular-nums;
-    letter-spacing: -.045em; font-size: clamp(4.5rem, 14vw, 11rem); line-height: 1.02;
+    letter-spacing: -.045em; font-size: var(--time-size); line-height: 1.02;
     white-space: nowrap; padding: 0 .06em; cursor: default;
     background: linear-gradient(180deg, var(--text), color-mix(in srgb, var(--text) 70%, var(--accent)));
     -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -854,6 +860,12 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 .scramble-actions .grow { flex: 1; }
 .scramble-actions .btn-icon[aria-pressed="true"] { color: var(--accent); }
 .chip.is-lock { color: var(--accent); background: var(--accent-soft); }
+.practice-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.practice-row .micro-label { margin-right: 2px; }
+.practice-toggles { display: flex; gap: 6px; margin-left: auto; }
+.cross-colour.is-sm { width: 20px; height: 20px; border-radius: 7px; }
+/* Practice previews: the pieces the step doesn't use fade back. */
+.net .dim { fill: var(--fill-3); stroke-opacity: .35; }
 .len-field { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--text-dim); margin-right: 6px; }
 .len-field input { width: 64px; padding: 4px 8px; text-align: center; font-family: var(--font-rounded); }
 .scramble-skeleton { display: flex; flex-direction: column; gap: 10px; padding: 6px 0; }

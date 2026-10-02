@@ -9,7 +9,8 @@
 import { eventDef } from '../events.ts';
 import { prefs } from '../prefs.ts';
 import { lseScramble, normalizeScramble, randomMoves } from './moves.ts';
-import { F2L_CORNERS, F2L_EDGES, U_CORNERS, U_EDGES, randomSubsetState } from './states.ts';
+import { f2lSubset, llSubset, randomSubsetState } from './states.ts';
+import type { Face } from './nxn.ts';
 
 type Cubing = {
   randomScrambleForEvent: (id: string) => Promise<{ toString(): string }>;
@@ -25,12 +26,13 @@ function loadScramble(): Promise<Cubing> {
   return cubingScramble;
 }
 
-async function subsetScramble(subset: 'll' | 'f2l'): Promise<string> {
+async function subsetScramble(subset: 'll' | 'f2l', colour: Face): Promise<string> {
   const [{ cube3x3x3 }, { KPattern }, { experimentalSolve3x3x3IgnoringCenters }] = await Promise.all([
     import('cubing/puzzles'), import('cubing/kpuzzle'), import('cubing/search'),
   ]);
   const kpuzzle = await cube3x3x3.kpuzzle();
-  const state = subset === 'll' ? randomSubsetState(U_EDGES, U_CORNERS) : randomSubsetState(F2L_EDGES, F2L_CORNERS);
+  const { edges, corners } = subset === 'll' ? llSubset(colour) : f2lSubset(colour);
+  const state = randomSubsetState(edges, corners);
   const data = structuredClone(kpuzzle.definition.defaultPattern) as unknown as Record<string, { pieces: number[]; orientation: number[] }>;
   data.EDGES = state.EDGES;
   data.CORNERS = state.CORNERS;
@@ -51,7 +53,8 @@ async function generate(eventId: string): Promise<string> {
       if (s.gen === '3gen') return randomMoves(['R', 'U', 'F'], 25).join(' ');
       return randomMoves(['R', 'U', 'F', 'L', 'D', 'B'], prefs().customLength).join(' ');
     case 'subset':
-      return normalizeScramble(await subsetScramble(s.subset));
+      if (s.subset === 'f2l' && !prefs().f2lCrossSolved) return generate('333');
+      return normalizeScramble(await subsetScramble(s.subset, prefs().crossColour));
     case 'wca': {
       const { randomScrambleForEvent } = await loadScramble();
       if (eventId === '333mbf') {
@@ -69,7 +72,9 @@ async function generate(eventId: string): Promise<string> {
 /** Prefetched next scramble per event (keyed with the custom length so a change isn't stale). */
 const ahead = new Map<string, Promise<string>>();
 const keyOf = (eventId: string) => (eventId === '333len' ? `333len:${prefs().customLength}`
-  : eventId === '333mbf' ? `333mbf:${prefs().multiCubes}` : eventId);
+  : eventId === '333mbf' ? `333mbf:${prefs().multiCubes}`
+  : eventId === 'll' ? `ll:${prefs().crossColour}`
+  : eventId === 'f2l' ? `f2l:${prefs().f2lCrossSolved ? prefs().crossColour : 'random'}` : eventId);
 
 function prefetch(eventId: string): Promise<string> {
   const key = keyOf(eventId);

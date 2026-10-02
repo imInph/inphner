@@ -7,14 +7,17 @@
  * - ← previous · → next · copy · edit/paste your own · lock (reuse it).
  * - Preview: our own SVG net for N×N cubes, a 2D cubing.js <twisty-player> for
  *   everything else; clicking it toggles a 3D <twisty-player>.
+ * - Cross / F2L / LL practice: a cross-colour picker (F2L also a "cross
+ *   solved" toggle). The net dims the pieces the step doesn't use.
  * - Scrambles are prefetched (generator.ts); history is per event, this visit.
  */
 import { eventDef } from '../events.ts';
-import { prefs, setPrefs } from '../prefs.ts';
+import { inspectionFor, prefs, setPrefs } from '../prefs.ts';
 import { nextScramble, warm } from '../scramble/generator.ts';
 import { normalizeScramble, scrambleLength, scrambleRows } from '../scramble/moves.ts';
-import { netSvg } from '../scramble/net.ts';
-import { applyScramble, cubeSize, solvedCube } from '../scramble/nxn.ts';
+import { netSvg, type NetFocus } from '../scramble/net.ts';
+import { applyScramble, cubeSize, solvedCube, type Face } from '../scramble/nxn.ts';
+import { COLOUR_HEX, COLOUR_NAMES, FACE_ORDER } from '../tools/orient.ts';
 import { esc, onAction as delegate } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { openModal } from '../ui/modal.ts';
@@ -60,7 +63,7 @@ const wiredHosts = new WeakSet<HTMLElement>();
 
 export function mountScramble(el: HTMLElement, eventId: string): void {
   host = el;
-  delegate(el, (action) => { void onAction(action); });
+  delegate(el, (action, t) => { void onAction(action, t); });
   if (!wiredHosts.has(el)) {
     wiredHosts.add(el);
     // The preview is a div role=button (<twisty-player> won't render inside a real <button>).
@@ -200,6 +203,7 @@ function render(): void {
     <div class="scramble-wrap ${previewOpen ? 'preview-open' : ''} ${noPreview ? 'no-preview' : ''}">
       <section class="card scramble-card" aria-label="Scramble">
         ${body}
+        ${practiceRow()}
         ${none ? '' : `
         <div class="scramble-actions">
           ${customLen || (len ? `<span class="chip num" title="Scramble length">${len}<span class="chip-unit"> ${event === 'sq1' ? 'twists' : 'moves'}</span></span>` : '')}
@@ -228,9 +232,42 @@ function render(): void {
 
 let lastAnnounced = '';
 
+const PRACTICE = new Set(['cross', 'f2l', 'll']);
+
+/** Cross / F2L / LL practice: which colour you hold on the bottom. */
+function practiceRow(): string {
+  if (!PRACTICE.has(event)) return '';
+  const p = prefs();
+  const swatch = (face: Face) => `
+    <button type="button" class="cross-colour is-sm ${p.crossColour === face ? 'on' : ''}" data-action="cross-colour"
+      data-value="${face}" style="--sw:${COLOUR_HEX[face]}" aria-pressed="${p.crossColour === face}"
+      title="${COLOUR_NAMES[face]} cross" aria-label="${COLOUR_NAMES[face]} cross"></button>`;
+  const toggle = (action: string, on: boolean, label: string, title: string) =>
+    `<button type="button" class="btn btn-sm ${on ? 'btn-primary' : ''}" data-action="${action}" aria-pressed="${on}" title="${title}">${label}</button>`;
+  const inspecting = inspectionFor(p, event);
+  // Cross practice keeps inspection (planning the cross is the point); the
+  // later steps start mid-solve, so theirs is a switch here, off by default.
+  const toggles = [
+    event === 'f2l' ? toggle('f2l-cross', p.f2lCrossSolved, 'Cross solved',
+      p.f2lCrossSolved ? 'Scrambles come with the cross solved' : 'Normal scrambles: solve the cross yourself first') : '',
+    event !== 'cross' ? toggle('practice-inspection', inspecting, 'Inspection',
+      inspecting ? '15 s WCA inspection before each solve' : 'No inspection: hold and go') : '',
+  ].join('');
+  return `<div class="practice-row">
+      <span class="micro-label">Cross</span>${FACE_ORDER.map(swatch).join('')}
+      ${toggles ? `<span class="practice-toggles">${toggles}</span>` : ''}
+    </div>`;
+}
+
+function previewFocus(): NetFocus | undefined {
+  if (event === 'cross') return { step: 'cross', colour: prefs().crossColour };
+  if (event === 'f2l') return { step: 'f2l', colour: prefs().crossColour };
+  return undefined;
+}
+
 function previewHtml(scramble: string, n: number): string {
   // N×N in 2D: our own net (exact colours, sticker gap and radius from the spec).
-  if (n && !preview3d && applyScramble(solvedCube(n), scramble)) return netSvg(n, scramble, 204);
+  if (n && !preview3d && applyScramble(solvedCube(n), scramble)) return netSvg(n, scramble, 204, previewFocus());
   // Everything else, and 3D: cubing.js's <twisty-player> (loaded on demand).
   void import('cubing/twisty');
   const puzzle = n ? `${n}x${n}x${n}` : TWISTY_PUZZLE[event] ?? '3x3x3';
@@ -260,7 +297,7 @@ async function goNextFresh(): Promise<void> {
   await load();
 }
 
-async function onAction(action: string): Promise<void> {
+async function onAction(action: string, t: HTMLElement): Promise<void> {
   const s = st();
   const scramble = currentScramble();
   switch (action) {
@@ -289,8 +326,33 @@ async function onAction(action: string): Promise<void> {
       previewOpen = !previewOpen;
       render();
       break;
+    case 'cross-colour':
+      if (prefs().crossColour === t.dataset.value) break;
+      setPrefs({ crossColour: t.dataset.value as Face });
+      // A normal scramble (cross practice, or F2L without the cross solved)
+      // doesn't depend on the colour: only the preview changes.
+      await practiceChanged(event === 'cross' || (event === 'f2l' && !prefs().f2lCrossSolved));
+      break;
+    case 'practice-inspection':
+      setPrefs({ inspection: { ...prefs().inspection, [event]: !inspectionFor(prefs(), event) } });
+      render();
+      break;
+    case 'f2l-cross':
+      setPrefs({ f2lCrossSolved: !prefs().f2lCrossSolved });
+      await practiceChanged(false);
+      break;
     default: break;
   }
+}
+
+/** F2L / LL scrambles are built for the colour, so a change fetches a new one (unless locked). */
+async function practiceChanged(previewOnly: boolean): Promise<void> {
+  if (previewOnly || st().locked) {
+    render();
+    return;
+  }
+  warm(event);
+  await goNextFresh();
 }
 
 function editScramble(): void {

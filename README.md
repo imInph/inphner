@@ -6,18 +6,22 @@ A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
 IndexedDB in your browser), in a frosted "Glass" design.
 
-**Status: v1.2.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
+**Status: v1.3.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
 trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smart cube input
 (both marked experimental until they've met real hardware).
 
 ## Features
 
-- **Timer:** hold space (or touch) until green, release to start, any key stops. WCA inspection
-  with automatic +2 / DNF and optional 8 s / 12 s alerts, focus mode, typing mode, multi-phase
+- **Timer:** hold space (or touch) until green, release to start, any key stops. On a computer a
+  mouse click never starts the timer, so a stray click can't begin an attempt; Esc cancels a hold
+  or an inspection. WCA inspection with automatic +2 / DNF and optional 8 s / 12 s alerts, focus mode, typing mode, multi-phase
   splits, and a post-solve row (OK · +2 · DNF · comment · delete, with undo).
 - **Scrambles:** random-state scrambles for every WCA event (cubing.js, in a worker, prefetched)
   plus training events (2GEN, 3GEN, LSE, last layer, F2L-only, custom length…), with a 2D net or
-  3D preview. FMC (60-minute countdown, validated solution) and Multi-BLD entry.
+  3D preview. Cross, F2L and last-layer practice take a cross colour: F2L scrambles come with
+  that cross already solved (or switch it off for a full scramble), last-layer ones with its F2L
+  solved, and the preview greys out the pieces the step doesn't use. F2L and last-layer practice
+  skip inspection by default, with a switch to turn it back on. FMC (60-minute countdown, validated solution) and Multi-BLD entry.
 - **Sessions:** unlimited sessions per event, reorder / rename / archive / merge, bulk move or
   delete, a virtualised solve list that handles 50 000+ solves.
 - **Stats:** WCA-correct mo3 / aoN (trimmed, DNF rules, 9f rounding), incremental (a new solve

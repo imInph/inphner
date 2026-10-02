@@ -11,7 +11,11 @@ test('parsePrefs: clamps and validates each field', () => {
   const p = parsePrefs(JSON.stringify({
     holdMs: 5000, precision: 4, live: 'tenths', input: 'telepathy', phases: 0,
     inspection: { '333': false, 'bad key!': true, pyram: 'yes' }, volume: 3, strip: [12, 5, 7, 5],
+    crossColour: 'purple', f2lCrossSolved: 'no',
   }));
+  assert.equal(p.crossColour, 'U');
+  assert.equal(p.f2lCrossSolved, true);
+  assert.equal(parsePrefs('{"crossColour":"F","f2lCrossSolved":false}').crossColour, 'F');
   assert.equal(p.holdMs, 1000);
   assert.equal(p.precision, 2);
   assert.equal(p.live, 'tenths');
@@ -27,6 +31,9 @@ test('inspection: on by default except BLD, FMC and "none"; overrides win', () =
   assert.equal(inspectionDefault('333bf'), false);
   assert.equal(inspectionDefault('333fm'), false);
   assert.equal(inspectionDefault('333mbf'), false);
+  assert.equal(inspectionDefault('f2l'), false);
+  assert.equal(inspectionDefault('ll'), false);
+  assert.equal(inspectionDefault('cross'), true);
   const p = parsePrefs(JSON.stringify({ inspection: { '333': false, '333bf': true } }));
   assert.equal(inspectionFor(p, '333'), false);
   assert.equal(inspectionFor(p, '333bf'), true);

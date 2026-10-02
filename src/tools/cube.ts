@@ -15,6 +15,7 @@
  */
 import { CORNER_POS, EDGE_POS } from '../trainer/cube3.ts';
 import { applyScramble, faceGrids, solvedCube, type Face } from '../scramble/nxn.ts';
+import { PIECE_LAYOUT } from '../scramble/pieces.ts';
 
 export interface Cube {
   ep: number[]; eo: number[];
@@ -38,16 +39,7 @@ export const CELLS = new Map<string, [Face, number, number]>();
 {
   const corners = ['UFR', 'URB', 'UBL', 'ULF', 'DRF', 'DFL', 'DLB', 'DBR'];
   const edges = ['UF', 'UR', 'UB', 'UL', 'DF', 'DR', 'DB', 'DL', 'FR', 'FL', 'BR', 'BL'];
-  // Each face grid, row by row, naming the piece each cell belongs to.
-  const layout: Record<Face, (string | null)[]> = {
-    U: ['UBL', 'UB', 'URB', 'UL', null, 'UR', 'ULF', 'UF', 'UFR'],
-    F: ['ULF', 'UF', 'UFR', 'FL', null, 'FR', 'DFL', 'DF', 'DRF'],
-    R: ['UFR', 'UR', 'URB', 'FR', null, 'BR', 'DRF', 'DR', 'DBR'],
-    B: ['URB', 'UB', 'UBL', 'BR', null, 'BL', 'DBR', 'DB', 'DLB'],
-    L: ['UBL', 'UL', 'ULF', 'BL', null, 'FL', 'DLB', 'DL', 'DFL'],
-    D: ['DFL', 'DF', 'DRF', 'DL', null, 'DR', 'DLB', 'DB', 'DBR'],
-  };
-  for (const [face, cells] of Object.entries(layout) as [Face, (string | null)[]][]) {
+  for (const [face, cells] of Object.entries(PIECE_LAYOUT) as [Face, (string | null)[]][]) {
     cells.forEach((name, i) => {
       if (!name) return;
       const c = corners.indexOf(name);

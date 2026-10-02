@@ -31,6 +31,10 @@ export interface Prefs {
   customLength: number;
   /** Cubes in a Multi-BLD attempt (scrambles generated per attempt). */
   multiCubes: number;
+  /** Cross / F2L / LL practice: the colour held on the bottom (a face letter = its centre). */
+  crossColour: 'U' | 'R' | 'F' | 'D' | 'L' | 'B';
+  /** F2L practice: hand out scrambles with the cross already solved. */
+  f2lCrossSolved: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -50,10 +54,15 @@ export const DEFAULT_PREFS: Prefs = {
   lastNudgeAt: 0,
   customLength: 25,
   multiCubes: 5,
+  crossColour: 'U',
+  f2lCrossSolved: true,
 };
 
-/** WCA: inspection is on for everything except blindfolded events and FMC. */
-const NO_INSPECTION = new Set(['333bf', '444bf', '555bf', '333mbf', '333fm', 'none']);
+/**
+ * WCA: inspection is on for everything except blindfolded events and FMC.
+ * F2L and LL practice start mid-solve, so there's nothing to inspect for.
+ */
+const NO_INSPECTION = new Set(['333bf', '444bf', '555bf', '333mbf', '333fm', 'none', 'f2l', 'll']);
 export function inspectionDefault(event: string): boolean {
   return !NO_INSPECTION.has(event);
 }
@@ -104,6 +113,8 @@ export function parsePrefs(raw: string | null): Prefs {
     lastNudgeAt: num(o.lastNudgeAt, 0, 0, 8.64e15),
     customLength: Math.round(num(o.customLength, d.customLength, 1, 100)),
     multiCubes: Math.round(num(o.multiCubes, d.multiCubes, 2, 60)),
+    crossColour: oneOf(o.crossColour, ['U', 'R', 'F', 'D', 'L', 'B'] as const, d.crossColour),
+    f2lCrossSolved: bool(o.f2lCrossSolved, d.f2lCrossSolved),
   };
 }
 

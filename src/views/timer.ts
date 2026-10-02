@@ -301,7 +301,7 @@ function paint(): void {
   if (hold === 'armed') text = 'hold…';
   else if (hold === 'ready') text = 'release to start';
   else if (hold === 'tap') text = 'release to inspect';
-  else if (phase === 'inspecting') text = isTouchDevice() ? 'inspecting · touch and hold to start' : 'inspecting · hold space to start';
+  else if (phase === 'inspecting') text = isTouchDevice() ? 'inspecting · touch and hold to start' : 'inspecting · hold space to start · Esc cancels';
   else if (phase === 'running') text = p.phases > 1 ? `phase ${engine.splits.length + 1} of ${p.phases}` : '';
   else if (!postSolveId) text = externalInput() ? '' : isTouchDevice() ? 'touch and hold to start' : 'hold space to start';
   label.textContent = text;
@@ -893,11 +893,16 @@ function handleSolveKeys(e: KeyboardEvent): void {
   }
 }
 
-/** Touch/pen/mouse on the stage arms like the spacebar; while running, a press anywhere stops. */
+/**
+ * Touch/pen on the stage arms like the spacebar; while running, a press anywhere
+ * stops. A mouse never starts anything (owner's call): on a computer the
+ * keyboard is the input, and a stray click on the way to a post-solve button
+ * used to start an inspection. A mouse can still stop a running solve.
+ */
 function wireStage(stage: HTMLElement): void {
   stage.addEventListener('pointerdown', (e) => {
     if (!active || engine.phase === 'running') return; // the document handler stops
-    if (e.button !== 0 || activePointer !== null) return;
+    if (e.pointerType === 'mouse' || e.button !== 0 || activePointer !== null) return;
     if ((e.target as HTMLElement).closest('[data-no-timer], button, a, input, textarea, select')) return;
     if (externalInput() || isFmc()) return;
     if (document.querySelector('.modal-backdrop')) return;
