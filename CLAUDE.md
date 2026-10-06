@@ -5,8 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # inphner
 
 A speedcubing timer, session tracker, stats suite and algorithm trainer ("csTimer rebuilt
-properly"). A visual sibling of **inphub** (the owner's dashboard, `/Applications/XAMPP/htdocs/inphub`):
-the same Glass design system, token for token.
+properly"). It started as a visual sibling of **inphub** (the owner's dashboard,
+`/Applications/XAMPP/htdocs/inphub`), the same Glass design system token for token. **Since v1.4.0
+it has its own, plainer look** (owner's call: the original read as "obviously AI-made"). It keeps
+the Glass structure, but see "Plainer look" in the decisions table; don't restore inphub's values.
 
 - **Spec:** `inphner-prompt/inphner-prompt.md` (Part A product, Part B design system, Part C build
   order + acceptance). Screenshots of inphub are in `inphner-prompt/screenshots/`.
@@ -22,8 +24,8 @@ outstanding acceptance pass (see Release status). The rules that still hold:
 
 - Check every change in the browser at desktop size (1378×862, the screenshots' size) **and** at
   375px before calling it done.
-- Use Part B's token values exactly. Don't restyle, "modernise" or invent colours, radii, accents
-  or wallpapers.
+- Part B's tokens are the starting point, as changed by the "Plainer look" decision. Don't
+  restyle, "modernise" or invent colours, radii, accents or wallpapers beyond that.
 - **Don't invent cubing algorithms.** If unsure of an alg, leave it `""` for the owner to fill in.
   The same goes for hardware protocols: use a library or leave it marked untested, never guess.
 - Pure logic gets its tests before its UI; never call a change done with failing tests.
@@ -60,6 +62,8 @@ outstanding acceptance pass (see Release status). The rules that still hold:
 | Inspection | A tap (press+release, no hold) starts inspection; starting the solve still needs the hold to green. |
 | Bundler | **esbuild** (the spec allows it): cubing.js has bare imports (three, …) and a module worker that an import map can't reach. `tsc` is the type checker only. |
 | First-run keycap | Animates 3 times, then rests (B10: the only perpetual motion is the wallpaper drift). |
+| Plainer look | v1.4.0, owner's call. Radii 6/10/14/18 (were 8/12/20/28). Glass is more solid (`--glass-bg` .74 dark / .78 light), blur 14px with no saturate, **no sheen, no hover glow**, hairline borders, small tight shadows. Wallpaper blobs weaker (`--wp-strength` .42 / .34) with an SVG grain in `.wallpaper::after`. Logo and `.btn-primary` are **flat accent fills** (no gradient, gloss or glow). `.badge-ico` is a bare icon in its tint colour, not a glossy tile. Copy aimed at new visitors is plain and first-person (no "Label:" lists, few colons). |
+| Default look | **Light theme + forest wallpaper** (owner's call, Oct 2026; was dark + aurora). Only what nobody has saved: `DEFAULT_APPEARANCE`, `parseTheme()` (anything but `'dark'` is light), the `<html>` attributes and theme-color in `index.html`, the manifest colours, the feature pages and `tools/og.html`. Accent **green** (owner's call). The app icons are still the blue badge. |
 
 ## Commands
 
@@ -252,9 +256,17 @@ namespaces (`erasableSyntaxOnly`, which Node's type stripping requires).
 - Shell documents are network-first (a new build is seen at once), everything else cache-first
   (it's content-hashed). A 404/500 counts as a failure, so a half-deployed build falls back to
   the cached copy.
-- **An update never takes over silently:** the new worker waits, `register.ts` shows the
+- **An update never takes over a page in use:** the new worker waits, `register.ts` shows the
   "A new version of inphner is ready · Reload" toast, and only then posts `skip-waiting`.
   Reloading mid-solve would be the one unforgivable bug.
+- **Except a page nobody has touched yet** (since v1.4.0). Opening the site from a search
+  result greeted every visitor with that toast: the old worker served the old build and the
+  update check right after found the new one. Before the first key/pointer press, and while
+  `timerBusy()`/`trainerBusy()` are false (a Stackmat or smart cube can start a solve untouched),
+  `register.ts` takes the update and reloads at once. A sessionStorage stamp limits that to one
+  quiet reload per 30 s, so an update that reappears on every load falls back to the toast
+  instead of looping. When *another* tab activates an update, this tab's old build has lost its
+  chunks, so it reloads too (untouched) or shows the toast.
 - **Testing:** the browser pane cannot register a service worker at all (it fails the same way
   for a script that doesn't exist), so `src/pwa/sw.test.ts` runs the **built** `public/sw.js` in
   `node:vm` with a fake CacheStorage and a fetch that can be switched off: install → warm →
@@ -427,7 +439,37 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 
 **Anything added to the offline path must keep that count at zero.**
 
-## Release status (v1.3.0)
+## Search and sharing (since v1.4.0)
+
+- `index.html` carries the descriptive title (also set by `HOME_TITLE` in `main.ts`, because the
+  router rewrites `document.title`), meta description, canonical `https://inphner.com/`, Open Graph
+  + `summary_large_image` tags, a schema.org `WebApplication` block and a `<noscript>` summary.
+  The first-run card ends with one "what inphner is" line (Googlebot is always a first visitor);
+  it hides on phones shorter than 760px so the card still fits the stage.
+- **Feature pages** `public/{cstimer-alternative,pll-oll-trainer,offline-cube-timer}/index.html`:
+  static documents for searches the home page can't win. No script, the app's `app.css` with the
+  `.doc*` classes at its end, the default look hard-coded. `tools/build.mjs` stamps their
+  `../app.css?v=`. Every claim on them is checked against the code: keep it that way, and add any
+  new page to `public/sitemap.xml` (and the footers of the others).
+- The app links the guides from one list, `src/guides.ts` (`GUIDES`): Settings → About, a
+  "Guides" section in the command palette, and a row of buttons in the welcome sheet. **Always in
+  a new tab** (owner's call), so a guide never replaces a running session. A new page goes in
+  `GUIDES` too.
+- **`public/og.png`** (1200×630) is rendered from `tools/og.html` by `node tools/og.mjs`
+  (qlmanage onto a 1200² canvas, then a centred `sips` crop). Re-run it after changing the look.
+- `public/robots.txt` points at the sitemap. Search Console is verified by a DNS TXT record on
+  Cloudflare, which must stay.
+- **Welcome sheet** (`views/welcome.ts`), once per browser: shown when there is no
+  `inphner.welcomed` stamp *and* no solves (so people who used inphner before it existed never see
+  it). The stamp is written as it opens. `main.ts` checks the stamp before importing the chunk, so
+  returning visitors never download it. It says what inphner is, offers the csTimer import
+  (`openImport()` is imported statically so the file picker opens inside the click, which Safari
+  requires), says solves stay local, and on a touch device not running standalone, how to install.
+  Waits 700 ms after boot and never opens while `timerBusy()`/`trainerBusy()` or another modal is up.
+- Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
+  Email Routing; Settings → About and the README link it.
+
+## Release status (v1.4.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in

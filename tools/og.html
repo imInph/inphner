@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!-- The link-preview card (public/og.png, 1200×630), drawn with the app's own
+     stylesheet. Regenerate with: node tools/og.mjs -->
+<html lang="en" data-theme="light" data-accent="green" data-wallpaper="forest" data-glass="full" data-logo="accent">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../public/app.css">
+<style>
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  .wallpaper::before { animation: none !important; }
+  .og { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 430px; gap: 56px; align-items: center; padding: 0 84px; }
+  .og .logo { font-family: var(--font-display); font-size: 34px; font-weight: 740; letter-spacing: -.02em; }
+  .og h1 { font-family: var(--font-display); font-size: 54px; line-height: 1.05; font-weight: 780; letter-spacing: -.035em; margin: 24px 0 16px; }
+  .og p { font-size: 22px; color: var(--text-dim); margin: 0; line-height: 1.35; }
+  .og .url { margin-top: 22px; font-size: 20px; color: var(--text-faint); }
+  .og .card { padding: 34px 30px 28px; text-align: center; }
+  .og .t { font-family: var(--font-rounded); font-size: 118px; font-weight: 700; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .og .scr { font-family: var(--font-mono); font-size: 17px; color: var(--text-dim); margin-bottom: 26px; line-height: 1.5; }
+  .og .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 28px; }
+  .og .chip { background: var(--fill-1); border-radius: var(--radius-sm); padding: 10px 6px; }
+  .og .chip small { display: block; font-size: 14px; color: var(--text-faint); }
+  .og .chip b { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="wallpaper" aria-hidden="true"></div>
+  <div class="og">
+    <div>
+      <span class="logo">inphner</span>
+      <h1>Speedcubing timer, stats &amp; trainer</h1>
+      <p>Random-state scrambles, WCA inspection, charts, a PLL/OLL trainer and csTimer import. Free, and it works offline.</p>
+      <div class="url">inphner.com</div>
+    </div>
+    <div class="card">
+      <div class="scr">R U2 F' L2 D B2 R' U F2 L D2 R2 U'</div>
+      <div class="t">9.84</div>
+      <div class="chips">
+        <div class="chip"><small>ao5</small><b>10.62</b></div>
+        <div class="chip"><small>ao12</small><b>11.07</b></div>
+        <div class="chip"><small>best</small><b>8.91</b></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

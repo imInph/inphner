@@ -11,5 +11,8 @@
  * browser, so that applies to this deployment as much as to anyone's fork.
  */
 
-export const VERSION = '1.3.0';
+export const VERSION = '1.4.0';
 export const SOURCE_URL = 'https://github.com/imInph/inphner';
+
+/** Where feedback and bug reports go (forwarded by Cloudflare Email Routing). */
+export const CONTACT_EMAIL = 'inph@inphner.com';

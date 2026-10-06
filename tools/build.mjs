@@ -13,7 +13,7 @@
  */
 import * as esbuild from 'esbuild';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, rmSync, watch, readdirSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, watch, readdirSync, copyFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -65,6 +65,16 @@ function stamp() {
     .replace(/(href="app\.css)(\?v=[^"]*)?"/, `$1?v=${hashOf(join(pub, 'app.css'))}"`)
     .replace(/(src="js\/main\.js)(\?v=[^"]*)?"/, `$1?v=${hashOf(join(pub, 'js/main.js'))}"`);
   if (after !== before) writeFileSync(htmlPath, after);
+
+  // The feature pages (public/<slug>/index.html) link the same stylesheet from one level down.
+  const css = hashOf(join(pub, 'app.css'));
+  for (const dir of readdirSync(pub, { withFileTypes: true })) {
+    const page = join(pub, dir.name, 'index.html');
+    if (!dir.isDirectory() || !existsSync(page)) continue;
+    const was = readFileSync(page, 'utf8');
+    const now = was.replace(/(href="\.\.\/app\.css)(\?v=[^"]*)?"/, `$1?v=${css}"`);
+    if (now !== was) writeFileSync(page, now);
+  }
 }
 
 /**

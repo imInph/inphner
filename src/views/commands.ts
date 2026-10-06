@@ -4,6 +4,7 @@
  * inspection off for 3x3", "Switch to OH practice").
  */
 import { EVENTS, eventDef } from '../events.ts';
+import { GUIDES, openGuide } from '../guides.ts';
 import { inspectionFor, prefs, setPrefs } from '../prefs.ts';
 import { go } from '../router.ts';
 import { warm } from '../scramble/generator.ts';
@@ -78,6 +79,13 @@ export async function paletteItems(): Promise<PaletteItem[]> {
     items.push({
       id: `go:${v.id}`, section: 'Go to', label: `Go to ${v.label}`, sub: v.blurb,
       keywords: v.blurb, hint: `g ${v.key}`, icon: icon(v.icon, 18), run: () => go(v.id),
+    });
+  }
+
+  for (const g of GUIDES) {
+    items.push({
+      id: `guide:${g.slug}`, section: 'Guides', label: g.label, sub: `${g.blurb} (opens in a new tab)`,
+      keywords: 'guide help how', icon: icon('book', 18), run: () => openGuide(g.slug),
     });
   }
 

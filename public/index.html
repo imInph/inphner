@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" data-accent="blue" data-wallpaper="aurora" data-glass="full" data-logo="accent">
+<html lang="en" data-theme="light" data-accent="green" data-wallpaper="forest" data-glass="full" data-logo="accent">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,7 +11,11 @@
     <meta property="og:site_name" content="inphner">
     <meta property="og:title" content="inphner · Speedcubing Timer, Stats &amp; Algorithm Trainer">
     <meta property="og:description" content="A free Rubik's cube timer with session stats, charts, an algorithm trainer and csTimer import. Works offline and on your phone.">
-    <meta name="twitter:card" content="summary">
+    <meta property="og:image" content="https://inphner.com/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="inphner: speedcubing timer, stats and trainer">
+    <meta name="twitter:card" content="summary_large_image">
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -25,7 +29,7 @@
     }
     </script>
     <meta name="color-scheme" content="dark light">
-    <meta name="theme-color" content="#0b0d12">
+    <meta name="theme-color" content="#f4f6fa">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="inphner">
     <script>
@@ -63,7 +67,7 @@
                     }
                 }
                 var meta = document.querySelector('meta[name="theme-color"]');
-                if (meta && h.getAttribute('data-theme') === 'light') meta.setAttribute('content', '#f4f6fa');
+                if (meta) meta.setAttribute('content', h.getAttribute('data-theme') === 'dark' ? '#0b0d12' : '#f4f6fa');
             } catch (e) { /* storage blocked: keep the defaults above */ }
         })();
     </script>
@@ -71,14 +75,15 @@
     <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <link rel="stylesheet" href="app.css?v=59c6e415b3">
-    <script type="module" src="js/main.js?v=e4f2c257e8"></script>
+    <link rel="stylesheet" href="app.css?v=ae1ad3a5da">
+    <script type="module" src="js/main.js?v=478cbfa186"></script>
 </head>
 <body>
     <div class="wallpaper" aria-hidden="true"></div>
     <div class="app">
         <aside class="sidebar" id="sidebar" aria-label="Main">
-            <div class="brand"><span class="logo">inphner</span><span class="brand-version">v1.3.0</span></div>
+            <div class="brand"><span class="logo">inphner</span><span class="brand-version">v1.4.0</span></div>
+            <p class="brand-note">Web Tabanlı Uygulama Geliştirme dersinden Hamide Hocam, Erhan Hocam ve Binnur Hocam'a selamlar.</p>
             <nav class="nav" id="nav"></nav>
             <div class="sidebar-foot" id="sidebar-foot"></div>
         </aside>

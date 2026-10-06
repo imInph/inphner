@@ -125,12 +125,14 @@ export function renderTimer(el: HTMLElement): void {
         ${firstRun ? `
           <section class="card first-run-card" id="first-run" aria-labelledby="first-run-title">
             <div class="keycap-wrap" aria-hidden="true"><div class="keycap">${touch ? 'hold' : 'space'}</div></div>
-            <h2 id="first-run-title">Ready when you are</h2>
+            <h2 id="first-run-title">${touch ? 'Hold to start' : 'Hold space to start'}</h2>
             ${touch
-              ? `<p>Touch and <strong>hold</strong> anywhere, release to start.<br>Touch again to stop.</p>
-                 <p class="hint">With a keyboard: hold space, release to start, any key stops.</p>`
-              : `<p>Press and hold <strong>space</strong>, release to start.<br>Any key stops.</p>
-                 <p class="hint">On a phone, touch and hold anywhere below the scramble.</p>`}
+              ? `<p>Put your finger down anywhere and wait for the time to turn green. Let go to start, tap to stop.</p>
+                 <p class="hint">Got a keyboard? Space works too.</p>`
+              : `<p>Wait for the time to turn green, then let go. Any key stops it.</p>
+                 <p class="hint">On a phone, hold your finger anywhere below the scramble instead.</p>`}
+            <p class="first-run-about">inphner is a free cube timer with proper WCA scrambles, your averages and charts,
+              and a PLL and OLL trainer. Everything is saved right here in your browser.</p>
           </section>` : ''}
       </div>
       <div class="timer-bottom" id="timer-bottom" data-chrome>

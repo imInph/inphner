@@ -267,8 +267,9 @@ async function boot(): Promise<void> {
   if (!viewMeta(initial.view)) location.replace('#' + DEFAULT_VIEW);
   activate(parseRoute());
 
-  registerServiceWorker();
+  registerServiceWorker(() => timerBusy() || trainerBusy());
   void watchBackups();
+  welcomeOnce();
   window.__inphnerLoaded = true;
   console.info(`[inphner] v${VERSION} ready`);
 }
@@ -325,6 +326,12 @@ function paintBackupDot(on: boolean): void {
   dot.className = 'nav-dot dot warn';
   dot.title = 'A backup is due';
   item.appendChild(dot);
+}
+
+/** First visit only: the welcome sheet (views/welcome.ts), loaded only when it may be needed. */
+function welcomeOnce(): void {
+  try { if (localStorage.getItem('inphner.welcomed') !== null) return; } catch { return; }
+  void import('./views/welcome.ts').then((m) => m.maybeWelcome(() => timerBusy() || trainerBusy()));
 }
 
 /** Settle after boot, and never interrupt a solve or a drill. */

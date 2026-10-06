@@ -30,10 +30,10 @@ test('every icon it promises exists, including a maskable one', () => {
   assert.ok(manifest.icons.some((i) => i.sizes === '512x512'), 'no 512px icon');
 });
 
-test('the splash colours are the ones the page itself uses in the dark theme', () => {
+test('the splash colours are the ones the page itself uses in the default (light) theme', () => {
   const css = readFileSync(`${dir}app.css`, 'utf8');
   const html = readFileSync(`${dir}index.html`, 'utf8');
-  // The splash screen is the page's own background, B4's dark --bg.
+  // The splash screen is the page's own background: --bg of the default light theme.
   assert.match(css, new RegExp(`--bg:\\s*${manifest.background_color};`));
   // The browser chrome matches <meta name="theme-color"> (B3.4), which is not --bg.
   assert.ok(html.includes(`content="${manifest.theme_color}"`), 'theme_color differs from the meta tag');

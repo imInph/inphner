@@ -18,7 +18,8 @@ import { icon } from '../ui/icons.ts';
 import { toast } from '../ui/toast.ts';
 import { handlePrefAction, handlePrefInput, prefsCards } from './settings-prefs.ts';
 import { dataCard, handleDataAction } from './data-io.ts';
-import { SOURCE_URL, VERSION } from '../version.ts';
+import { GUIDES, guideLink } from '../guides.ts';
+import { CONTACT_EMAIL, SOURCE_URL, VERSION } from '../version.ts';
 
 const LABEL: Record<string, string> = {
   blue: 'Blue', indigo: 'Indigo', purple: 'Purple', pink: 'Pink', red: 'Red', orange: 'Orange',
@@ -117,6 +118,9 @@ function aboutCard(): string {
         <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU AGPL-3.0</a>.
         Modify it and run it for others, and you owe them the source too.</p>
       <p><a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a></p>
+      <p>Guides: ${GUIDES.map((g) => guideLink(g.slug, g.label)).join(' · ')}</p>
+      <p>Found a bug, or missing something? Write to
+        <a href="mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`inphner v${VERSION} feedback`)}">${CONTACT_EMAIL}</a>.</p>
     </section>`;
 }
 

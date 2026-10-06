@@ -7,8 +7,8 @@
   "scope": ".",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#07080c",
-  "theme_color": "#0b0d12",
+  "background_color": "#eef1f6",
+  "theme_color": "#f4f6fa",
   "categories": ["utilities", "sports", "education"],
   "icons": [
     { "src": "icons/favicon.svg", "sizes": "any", "type": "image/svg+xml" },

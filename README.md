@@ -6,7 +6,7 @@ A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
 IndexedDB in your browser), in a frosted "Glass" design.
 
-**Status: v1.3.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
+**Status: v1.4.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
 trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smart cube input
 (both marked experimental until they've met real hardware).
 
@@ -59,6 +59,11 @@ npm test        # unit tests
 
 Then open `http://localhost/inphner/` (or wherever `public/` is served). `npm run watch` rebuilds
 on every change. See `CLAUDE.md` for architecture and conventions.
+
+## Feedback
+
+Bugs, ideas, or something csTimer does that you miss: write to
+[inph@inphner.com](mailto:inph@inphner.com) or open an issue.
 
 ## Credits
 

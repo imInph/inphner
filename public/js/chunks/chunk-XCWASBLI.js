@@ -1,0 +1,2 @@
+var i=[{slug:"cstimer-alternative",label:"Switching from csTimer",blurb:"Bring your csTimer sessions over"},{slug:"pll-oll-trainer",label:"The PLL, OLL and F2L trainer",blurb:"How the drills pick your cases"},{slug:"offline-cube-timer",label:"Using it offline on your phone",blurb:"Put it on your home screen"}],r=e=>`${e}/`,o=(e,n)=>`<a href="${r(e)}" target="_blank" rel="noopener">${n}</a>`;function t(e){window.open(r(e),"_blank","noopener")}export{i as a,r as b,o as c,t as d};
+//# sourceMappingURL=chunk-XCWASBLI.js.map
