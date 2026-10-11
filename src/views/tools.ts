@@ -87,7 +87,7 @@ function saveMemoPrefs(): void {
 /* ------------------------------------------------------------ the cards */
 
 function scrambleCard(): string {
-  const options = (group: 'wca' | 'training') => EVENTS.filter((e) => e.group === group)
+  const options = (group: 'wca' | 'other' | 'training') => EVENTS.filter((e) => e.group === group)
     .map((e) => `<option value="${e.id}" ${e.id === state.event ? 'selected' : ''}>${esc(e.name)}</option>`).join('');
   return `
     <section class="card" style="--i:0">
@@ -95,7 +95,7 @@ function scrambleCard(): string {
         <small class="text-dim">Official random-state scrambles</small></div>
       <div class="field-row">
         <label><span>Event</span><select data-field="event">
-          <optgroup label="WCA">${options('wca')}</optgroup><optgroup label="Training">${options('training')}</optgroup>
+          <optgroup label="WCA">${options('wca')}</optgroup><optgroup label="Other puzzles">${options('other')}</optgroup><optgroup label="Training">${options('training')}</optgroup>
         </select></label>
         <label style="flex:0 1 120px"><span>How many</span><select data-field="count">
           ${COUNTS.map((n) => `<option value="${n}" ${n === state.count ? 'selected' : ''}>${n}</option>`).join('')}

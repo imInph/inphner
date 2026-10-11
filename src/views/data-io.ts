@@ -50,6 +50,7 @@ function pickFile(): Promise<File | null> {
 
 const eventOptions = (selected: string) => `
   <optgroup label="WCA">${EVENTS.filter((e) => e.group === 'wca').map((e) => `<option value="${e.id}" ${e.id === selected ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}</optgroup>
+  <optgroup label="Other puzzles">${EVENTS.filter((e) => e.group === 'other').map((e) => `<option value="${e.id}" ${e.id === selected ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}</optgroup>
   <optgroup label="Training">${EVENTS.filter((e) => e.group === 'training').map((e) => `<option value="${e.id}" ${e.id === selected ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}</optgroup>`;
 
 function dateSpan(solves: ImportedSolve[]): string {

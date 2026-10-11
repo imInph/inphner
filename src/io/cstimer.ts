@@ -20,6 +20,7 @@ const SCR_TO_EVENT: Record<string, string> = {
   '333': '333', '222so': '222', '444wca': '444', '555wca': '555', '666wca': '666', '777wca': '777',
   '333ni': '333bf', '444bld': '444bf', '555bld': '555bf', 'r3ni': '333mbf', '333fm': '333fm',
   'clkwca': 'clock', 'mgmp': 'minx', 'pyrso': 'pyram', 'skbso': 'skewb', 'sqrs': 'sq1',
+  'ftoso': 'fto', 'fto': 'fto',
   'lsemu': 'lse', 'lse': 'lse', '2gen': '2gen', '2genl': '2gen', 'll': 'll', 'zbll': 'll', 'f2l': 'f2l',
   'input': 'none', 'r3': '333',
 };
@@ -27,6 +28,7 @@ const EVENT_TO_SCR: Record<string, string> = {
   '333': '333', '222': '222so', '444': '444wca', '555': '555wca', '666': '666wca', '777': '777wca',
   '333oh': '333', '333bf': '333ni', '444bf': '444bld', '555bf': '555bld', '333mbf': 'r3ni', '333fm': '333fm',
   'clock': 'clkwca', 'minx': 'mgmp', 'pyram': 'pyrso', 'skewb': 'skbso', 'sq1': 'sqrs', 'lse': 'lsemu',
+  'fto': 'ftoso',
   '2gen': '2gen', 'll': 'll', 'f2l': 'f2l', 'none': 'input',
 };
 
@@ -40,6 +42,7 @@ export function eventForCsTimer(scrType: string | undefined, name: string): stri
   if (byType) return byType;
   const m = /([2-7])x\1/.exec(n);
   if (m) return `${m[1]}${m[1]}${m[1]}`;
+  if (/\bfto\b|face[ -]?turning[ -]?octahedron/.test(n)) return 'fto';
   if (/pyra/.test(n)) return 'pyram';
   if (/skewb/.test(n)) return 'skewb';
   if (/mega|minx/.test(n)) return 'minx';

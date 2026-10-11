@@ -62,7 +62,7 @@ export async function openSessionPicker(trigger: HTMLElement): Promise<void> {
 }
 
 export function newSessionDialog(defaultEvent = currentSession().event): void {
-  const options = (group: 'wca' | 'training') => EVENTS.filter((e) => e.group === group)
+  const options = (group: 'wca' | 'other' | 'training') => EVENTS.filter((e) => e.group === group)
     .map((e) => `<option value="${e.id}" ${e.id === defaultEvent ? 'selected' : ''}>${esc(e.name)}</option>`).join('');
   openModal({
     title: 'New session',
@@ -70,7 +70,7 @@ export function newSessionDialog(defaultEvent = currentSession().event): void {
     bodyHtml: `
       <label><span>Name</span><input name="name" maxlength="60" placeholder="Main, OH practice, Comp sim…" autocomplete="off"></label>
       <label style="margin-top:12px"><span>Event</span><select name="event">
-        <optgroup label="WCA">${options('wca')}</optgroup><optgroup label="Training">${options('training')}</optgroup>
+        <optgroup label="WCA">${options('wca')}</optgroup><optgroup label="Other puzzles">${options('other')}</optgroup><optgroup label="Training">${options('training')}</optgroup>
       </select></label>`,
     onConfirm: async (m) => {
       const name = m.querySelector<HTMLInputElement>('[name="name"]')!.value.trim() || 'Main';

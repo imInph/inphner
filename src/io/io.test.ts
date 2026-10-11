@@ -69,6 +69,24 @@ test('csTimer export round-trips through the importer', () => {
   assert.equal(back.sessions[1]!.solves[0]!.penalty, 'DNF');
 });
 
+test('FTO sessions keep their event and scrambles through csTimer and backup round-trips', () => {
+  assert.equal(eventForCsTimer('ftoso', 'Practice'), 'fto');
+  assert.equal(eventForCsTimer('fto', 'Practice'), 'fto');
+  assert.equal(eventForCsTimer(undefined, 'FTO practice'), 'fto');
+  assert.equal(eventForCsTimer(undefined, 'Face-Turning Octahedron'), 'fto');
+  const scramble = "U R' BR BL' D F L B'";
+  const solves = [{ timeMs: 42560, penalty: 0 as const, scramble, createdAt: 1758290000000 }];
+  const back = parseCsTimer(buildCsTimer([{ name: 'Practice', event: 'fto', solves }]));
+  assert.equal(back.sessions[0]!.event, 'fto');
+  assert.equal(back.sessions[0]!.solves[0]!.scramble, scramble);
+  const session = { id: 'fto-session', name: 'Practice', event: 'fto', createdAt: 1, updatedAt: 1, order: 0 };
+  const solve = { ...solves[0]!, id: 'fto-solve', sessionId: session.id, event: 'fto', updatedAt: 2 };
+  const backup = parseBackup(buildBackup([session], [solve]))!;
+  assert.equal(backup.dropped, 0);
+  assert.deepEqual(backup.sessions, [session]);
+  assert.deepEqual(backup.solves, [solve]);
+});
+
 test('CSV: delimiter detection and quoted cells', () => {
   assert.equal(detectDelimiter('a;b;c\n1;2;3'), ';');
   assert.equal(detectDelimiter('a,b\n1,2'), ',');

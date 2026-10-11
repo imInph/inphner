@@ -70,8 +70,10 @@ export function lseScramble(length = 20, rng: Rng = Math.random): string[] {
 }
 
 /** Tidy a scramble string: single spaces, "R2'" → "R2" (cubing.js inversions produce those). */
-export function normalizeScramble(s: string): string {
-  return s.replace(/(\w)2'/g, '$12').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim();
+export function normalizeScramble(s: string, event = '333'): string {
+  // FTO faces turn in thirds: R2 and R2' are different moves.
+  const turns = event === 'fto' ? s : s.replace(/(\w)2'/g, '$12');
+  return turns.replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim();
 }
 
 /**

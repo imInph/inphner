@@ -64,7 +64,7 @@ async function generate(eventId: string): Promise<string> {
         for (let i = 0; i < n; i++) list.push(normalizeScramble((await randomScrambleForEvent('333bf')).toString()));
         return list.map((x, i) => `${i + 1}. ${x}`).join('\n');
       }
-      return normalizeScramble((await randomScrambleForEvent(s.id)).toString());
+      return normalizeScramble((await randomScrambleForEvent(s.id)).toString(), eventId);
     }
   }
 }

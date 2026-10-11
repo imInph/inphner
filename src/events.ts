@@ -2,7 +2,7 @@
  * inphner: every event (inphner-prompt.md §A3). WCA ids where they exist.
  *
  * Scramblers:
- *   wca     random-state, cubing.js randomScrambleForEvent(id) in its worker
+ *   wca     cubing.js randomScrambleForEvent(id) in its worker (also FTO)
  *   subset  random state of a 3x3 subset (states.ts), solved + inverted by cubing.js
  *   moves   random moves over a move set (2GEN, 3GEN, custom length, LSE)
  *   none    no scramble (PLL/OLL attack, "none")
@@ -27,7 +27,7 @@ export interface EventDef {
   name: string;
   /** Short label for pills and lists. */
   short: string;
-  group: 'wca' | 'training';
+  group: 'wca' | 'other' | 'training';
   /** cubing/icons id (src/data/event-icons.ts); training events borrow 333's. */
   icon: string;
   scrambler: Scrambler;
@@ -53,6 +53,8 @@ export const EVENTS: EventDef[] = [
   { id: 'pyram', name: 'Pyraminx', short: 'Pyraminx', group: 'wca', icon: 'pyram', scrambler: { kind: 'wca', id: 'pyram' } },
   { id: 'skewb', name: 'Skewb', short: 'Skewb', group: 'wca', icon: 'skewb', scrambler: { kind: 'wca', id: 'skewb' } },
   { id: 'sq1', name: 'Square-1', short: 'Square-1', group: 'wca', icon: 'sq1', scrambler: { kind: 'wca', id: 'sq1' } },
+
+  { id: 'fto', name: 'Face-Turning Octahedron (FTO)', short: 'FTO', group: 'other', icon: 'fto', scrambler: { kind: 'wca', id: 'fto' } },
 
   { id: '333len', name: '3x3 · custom length', short: '3x3 · N moves', group: 'training', icon: '333', scrambler: { kind: 'moves', gen: 'custom' } },
   { id: 'lse', name: 'LSE (Roux last six edges)', short: 'LSE', group: 'training', icon: '333', scrambler: { kind: 'moves', gen: 'lse' } },

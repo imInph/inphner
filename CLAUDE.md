@@ -55,6 +55,7 @@ outstanding acceptance pass (see Release status). The rules that still hold:
 | Post-solve keys | Both: plain keys (↵ 2 D C ⌫) while the post-solve row shows, and `Alt+1/2/3` / `Alt+Z` whenever idle. |
 | Event icons | The per-event **SVGs** from cubing/icons 3.0.5 (MIT), fetched from the GitHub tag into `src/data/event-icons/` (the npm package ships only a font). `node tools/event-icons.mjs` regenerates `src/data/event-icons.ts`. |
 | Training events (author's call) | `cross` and `roux` use a normal random-state 3x3 scramble (separate sessions/stats for the practice); `f2l` = the cross solved in the chosen **cross colour**, everything else (LL included) random, or a plain random scramble with the "Cross solved" toggle off; `ll` = F2L solved on the cross colour, random opposite layer (owner's call: the old `f2l` kept the white layer solved, i.e. a solved *first* layer); the Cross/F2L previews dim the pieces the step doesn't use (`importantStickers()` in `scramble/net.ts`); `f2l`/`ll` default to **no inspection** (switch on their practice row; `cross` keeps it); `lse` = random ⟨M,U⟩ with U turns ≡ 0 mod 4 so corners stay solved; 2GEN/3GEN/custom length = random moves; PLL/OLL attack and `none` have no scramble. |
+| FTO | `fto` uses cubing.js random-state scrambles and its `fto` 2D/3D preview, with csTimer `ftoso` import/export. Listed under Other puzzles until its WCA debut on 2 January 2027. FTO turns have order 3: never strip the prime from `R2'` / `BR2'`. The event glyph is an original SVG in the existing icon pipeline. |
 | Megaminx | One line per WCA row (7 lines), an exception to the "≤ 5 lines" sizing rule. |
 | Stats maths (author's call) | Singles are truncated to the display precision BEFORE averaging (WCA records hundredths); σ is the population standard deviation of non-DNF results. |
 | FMC | Stored as `timeMs = moves × 1000`; notation per WCA 12a (no slice moves), max 80 moves, validated with cubing.js (`experimentalIsSolved`, rotations ignored). The attempt survives a reload. |
@@ -469,7 +470,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 - Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
   Email Routing; Settings → About and the README link it.
 
-## Release status (v1.4.0)
+## Release status (v1.5.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in
@@ -509,7 +510,7 @@ OLL slots / adding algs.
   8/12 s beep/voice alerts, focus mode (`<html data-focus>` fades chrome, `data-running` pauses the
   drift), landing spring, post-solve row + keys, typing mode, multi-phase splits, wake lock,
   aria-live. Settings → Timer and Inspection cards.
-- [x] **3. Scrambles.** All 28 events (WCA + training) with random-state scrambles in cubing.js's
+- [x] **3. Scrambles.** All 29 events (WCA + FTO + training) with random-state scrambles in cubing.js's
   worker, prefetched one ahead; subset states solved + inverted; span-per-move text that fits 5
   lines; ← → copy edit lock; our SVG net for N×N, twisty 2D/3D otherwise (click toggles 3D);
   collapsible preview on phones; event picker pill (becomes the session picker in step 4).

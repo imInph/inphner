@@ -50,6 +50,14 @@ test('normalizeScramble tidies cubing.js output', () => {
   assert.equal(normalizeScramble('Rw2\' U'), 'Rw2 U');
 });
 
+test('FTO notation preserves inverse double turns and multi-letter faces', () => {
+  const scramble = normalizeScramble("  R2'  BR' BL2' ", 'fto');
+  assert.equal(scramble, "R2' BR' BL2'");
+  assert.deepEqual(scrambleRows(scramble, 'fto'), [["R2'", "BR'", "BL2'"]]);
+  assert.equal(scrambleLength(scramble, 'fto'), 3);
+  assert.equal(cubeSize('fto'), 0);
+});
+
 test('scrambleRows: Square-1 keeps (a, b) together; Megaminx breaks after U / U\'', () => {
   assert.deepEqual(scrambleRows('(1, 0) / (-3, 3) / (0, -1) /', 'sq1'), [['(1, 0)', '/', '(-3, 3)', '/', '(0, -1)', '/']]);
   assert.equal(scrambleLength('(1, 0) / (-3, 3) / (0, -1) /', 'sq1'), 3);

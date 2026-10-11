@@ -41,7 +41,7 @@ let previewOpen = false; // phone: the preview is collapsible
 let loadToken = 0;
 
 const TWISTY_PUZZLE: Record<string, string> = {
-  pyram: 'pyraminx', skewb: 'skewb', sq1: 'square1', minx: 'megaminx', clock: 'clock',
+  fto: 'fto', pyram: 'pyraminx', skewb: 'skewb', sq1: 'square1', minx: 'megaminx', clock: 'clock',
 };
 
 function st(): EventScrambles {
@@ -364,7 +364,7 @@ function editScramble(): void {
       <div class="error-block" data-err hidden></div>`,
     confirmLabel: 'Use it',
     onConfirm: (m) => {
-      const value = normalizeScramble(m.querySelector<HTMLTextAreaElement>('textarea')!.value);
+      const value = normalizeScramble(m.querySelector<HTMLTextAreaElement>('textarea')!.value, event);
       const err = m.querySelector<HTMLElement>('[data-err]')!;
       if (!value) {
         err.hidden = false;
