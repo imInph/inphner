@@ -89,7 +89,6 @@ let activePointer: number | null = null;
 let ctrlL = false;
 let ctrlR = false;
 let ctrlArmed = false;
-let wakeLock: WakeLockSentinel | null = null;
 /** The scramble on screen when the solve started: stored with the solve. */
 let solveScramble = '';
 
@@ -193,7 +192,6 @@ export function renderTimer(el: HTMLElement): void {
   renderPostSolve();
   renderBottom();
   if (els.typing && !touch) els.typing.focus({ preventScroll: true });
-  void acquireWakeLock();
 }
 
 function mountFmc(): void {
@@ -263,7 +261,6 @@ export function leaveTimer(): void {
   cancelAnimationFrame(smart.frame);
   smart.frame = 0;
   smart.running = false;
-  void releaseWakeLock();
   unmountScramble();
   els = null;
 }
@@ -1176,24 +1173,6 @@ function onTypingSubmit(e: SubmitEvent): void {
   void addSolve({ timeMs: parsed.timeMs, penalty: parsed.penalty, scramble, source: 'typing' }).then((solve) => landSolve(solve));
 }
 
-/* --------------------------------------------------------------- wake lock */
-
-async function acquireWakeLock(): Promise<void> {
-  if (!active || document.visibilityState !== 'visible' || wakeLock) return;
-  try {
-    wakeLock = await navigator.wakeLock?.request('screen') ?? null;
-    wakeLock?.addEventListener('release', () => { wakeLock = null; });
-  } catch {
-    wakeLock = null; // not supported / denied (e.g. battery saver)
-  }
-}
-
-async function releaseWakeLock(): Promise<void> {
-  const lock = wakeLock;
-  wakeLock = null;
-  try { await lock?.release(); } catch { /* already released */ }
-}
-
 /* -------------------------------------------------------------------- init */
 
 let inited = false;
@@ -1229,10 +1208,6 @@ export function initTimer(): void {
     ctrlL = ctrlR = ctrlArmed = false;
     stopKey = null;
     engine.interrupt();
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void acquireWakeLock();
-    else void releaseWakeLock();
   });
   document.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;

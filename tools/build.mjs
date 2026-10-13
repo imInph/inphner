@@ -24,7 +24,7 @@ const watchMode = process.argv.includes('--watch');
 
 /** @type {esbuild.BuildOptions} */
 const options = {
-  entryPoints: [join(root, 'src/main.ts')],
+  entryPoints: [join(root, 'src/main.ts'), join(root, 'src/guide.ts')],
   outdir: join(pub, 'js'),
   bundle: true,
   splitting: true,
@@ -72,7 +72,9 @@ function stamp() {
     const page = join(pub, dir.name, 'index.html');
     if (!dir.isDirectory() || !existsSync(page)) continue;
     const was = readFileSync(page, 'utf8');
-    const now = was.replace(/(href="\.\.\/app\.css)(\?v=[^"]*)?"/, `$1?v=${css}"`);
+    const now = was
+      .replace(/(href="\.\.\/app\.css)(\?v=[^"]*)?"/, `$1?v=${css}"`)
+      .replace(/(src="\.\.\/js\/guide\.js)(\?v=[^"]*)?"/, `$1?v=${hashOf(join(pub, 'js/guide.js'))}"`);
     if (now !== was) writeFileSync(page, now);
   }
 }

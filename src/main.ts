@@ -31,6 +31,7 @@ import { currentSession, initStore, storageProtection } from './store.ts';
 import { warm } from './scramble/generator.ts';
 import { openSessionPicker, renderSessionPill } from './views/session-picker.ts';
 import { VERSION } from './version.ts';
+import { initKeepAwake } from './keep-awake.ts';
 
 const HOME_TITLE = 'inphner · Speedcubing Timer, Stats & Algorithm Trainer';
 
@@ -214,6 +215,7 @@ function alive(): void {
 /* ---------------------------------------------------------------------- boot */
 
 async function boot(): Promise<void> {
+  initKeepAwake();
   buildSidebar();
   initTimer();
 

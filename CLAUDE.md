@@ -117,6 +117,8 @@ public/            what gets served (and synced to htdocs/inphner)
   icons/           favicon.svg, PNGs (32/180/512), maskable variants
 src/
   main.ts          boot: sidebar, router, drawer, global inline-onclick handlers, hotkeys, clock
+  keep-awake.ts    site-wide screen wake lock; visibility/page-cache recovery and gesture retries
+  guide.ts         small wake-lock entry for the static guide pages
   sw.ts            the service worker (see Offline); pwa/strategy.ts is PURE and tested,
                    pwa/register.ts registers it and offers the update
   router.ts        hash routes with params (#sessions?focus=<id>); views read params, never consume them
@@ -192,6 +194,17 @@ namespaces (`erasableSyntaxOnly`, which Node's type stripping requires).
   a solve still shifts nothing.
 - Browser-pane testing: when the pane is hidden, rAF and CSS transitions don't run. Verify
   colours/classes synchronously, and check running-time rendering with the pane visible.
+
+## Keeping the screen awake
+
+`keep-awake.ts` starts at app boot and on every guide page, across all views and whether or not
+someone is solving. It holds one screen wake lock while the document is visible, releases it
+on hide/pagehide, and reacquires on visibility/pageshow. Pointer/key interaction retries a denied
+request. A spontaneous release schedules a retry after one second; a denial waits for another
+interaction or return to the page. Pending requests are deduplicated, and a lock arriving after
+hide is released instead of retained. `keep-awake.test.ts` exercises these lifecycle races in a
+VM harness. Real phone/PC dimming still needs a physical-device check; browsers can deny the API
+in low power mode or under policy, and it needs a secure context (HTTPS or localhost).
 
 ## Trainer (src/trainer/, views/trainer.ts, views/algorithms.ts)
 
@@ -448,9 +461,10 @@ controlled, and re-runs on the `online` event; warming is skipped too.
   The first-run card ends with one "what inphner is" line (Googlebot is always a first visitor);
   it hides on phones shorter than 760px so the card still fits the stage.
 - **Feature pages** `public/{cstimer-alternative,pll-oll-trainer,offline-cube-timer}/index.html`:
-  static documents for searches the home page can't win. No script, the app's `app.css` with the
+  static documents for searches the home page can't win. A small `guide.ts` script keeps the screen
+  awake; the app's `app.css` with the
   `.doc*` classes at its end, the default look hard-coded. `tools/build.mjs` stamps their
-  `../app.css?v=`. Every claim on them is checked against the code: keep it that way, and add any
+  `../app.css?v=` and `../js/guide.js?v=`. Every claim on them is checked against the code: keep it that way, and add any
   new page to `public/sitemap.xml` (and the footers of the others).
 - The app links the guides from one list, `src/guides.ts` (`GUIDES`): Settings → About, a
   "Guides" section in the command palette, and a row of buttons in the welcome sheet. **Always in
@@ -470,7 +484,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 - Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
   Email Routing; Settings → About and the README link it.
 
-## Release status (v1.5.0)
+## Release status (v1.5.1)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in

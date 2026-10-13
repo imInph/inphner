@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/guide.ts"],
+  "sourcesContent": ["import { initKeepAwake } from './keep-awake.ts';\n\ninitKeepAwake();\n"],
+  "mappings": "kFAEAA,EAAc",
+  "names": ["initKeepAwake"]
+}
