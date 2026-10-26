@@ -1,6 +1,6 @@
 {
   "name": "inphner",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "license": "AGPL-3.0-only",
   "private": true,
   "description": "Speedcubing timer and trainer in inphub's Glass design.",

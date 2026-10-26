@@ -4,9 +4,9 @@ You can access inphner at [inphner.com](https://inphner.com).
 
 A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer rebuilt with a
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
-IndexedDB in your browser), in a frosted "Glass" design.
+IndexedDB in your browser, with optional sync through your own Google Drive), in a frosted "Glass" design.
 
-**Status: v1.5.1.** Everything in the build order is in: timer, scrambles, sessions, stats,
+**Status: v1.6.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
 trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smart cube input
 (both marked experimental until they've met real hardware).
 
@@ -41,6 +41,8 @@ trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smar
 - **Offline:** installs as an app and runs with no network — the whole build is cached, so you can
   time solves on a plane.
 - **Import / export:** csTimer (.txt), CSV and full inphner backups.
+- **Sync (optional):** sign in with Google and every device stays in step, through a hidden folder in
+  your own Drive. No account with inphner and no database; see `sync-worker/README.md`.
 - Dark / light, 9 accents, 7 wallpapers, reduced transparency, keyboard-first, phone-friendly.
 
 ## Run it

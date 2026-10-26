@@ -7,7 +7,8 @@
  * opens, so a reload or a closed tab doesn't bring it back.
  *
  * It says what inphner is, offers the csTimer import (most visitors are
- * switching from it), says where the solves live, and on a phone that isn't
+ * switching from it), says where the solves live and offers Google Drive sync
+ * (sync/sync.ts), and on a phone that isn't
  * running it installed, how to install it. It waits for a moment after boot
  * and never opens over a solve or a drill.
  */
@@ -15,6 +16,8 @@ import { countAll } from '../db/idb.ts';
 import { icon } from '../ui/icons.ts';
 import { GUIDES, guideHref } from '../guides.ts';
 import { openModal } from '../ui/modal.ts';
+import { toast } from '../ui/toast.ts';
+import { preloadSignIn, signIn, syncStatus } from '../sync/sync.ts';
 import { openImport } from './data-io.ts';
 
 const KEY = 'inphner.welcomed';
@@ -41,6 +44,25 @@ function installHint(): string {
     <li>
       <span class="badge-ico tint-teal">${icon('down', 16)}</span>
       <div><strong>Want it on your home screen?</strong> ${how} It opens like an app after that, and works offline.</div>
+    </li>`;
+}
+
+/** Where solves live, and the Google sign-in when sync is set up. */
+function savedHint(): string {
+  if (syncStatus().phase === 'unconfigured') {
+    return `
+    <li>
+      <span class="badge-ico tint-orange">${icon('lock', 16)}</span>
+      <div><strong>Your solves only live in this browser.</strong> Nothing gets uploaded, so back them up once in a
+        while from Settings → Data. You'll get a reminder.</div>
+    </li>`;
+  }
+  return `
+    <li>
+      <span class="badge-ico tint-orange">${icon('lock', 16)}</span>
+      <div><strong>Your solves are saved in this browser.</strong> Sign in with Google to keep them the same on all your
+        devices. They go in a hidden folder in your own Google Drive. You can also skip this and do it later in Settings.
+        <button type="button" class="btn btn-sm" data-welcome="signin">Sign in with Google</button></div>
     </li>`;
 }
 
@@ -76,17 +98,22 @@ export async function maybeWelcome(isBusy: () => boolean): Promise<void> {
             anything gets saved.
             <button type="button" class="btn btn-sm" data-welcome="import">Import from csTimer</button></div>
         </li>
-        <li>
-          <span class="badge-ico tint-orange">${icon('lock', 16)}</span>
-          <div><strong>Your solves only live in this browser.</strong> Nothing gets uploaded, so back them up once in a
-            while from Settings → Data. You'll get a reminder.</div>
-        </li>${installHint()}
+${savedHint()}${installHint()}
       </ul>
       <div class="welcome-guides">
         <small>Guides, in a new tab</small>
         <div>${GUIDES.map((g) => `<a class="btn btn-sm" href="${guideHref(g.slug)}" target="_blank" rel="noopener">${g.label}</a>`).join('')}</div>
         <small><a href="${guideHref('privacy')}" target="_blank" rel="noopener">Privacy policy</a> · <a href="${guideHref('terms')}" target="_blank" rel="noopener">Terms</a></small>
       </div>`,
+  });
+  // Google's script has to be loaded before the click, or the popup gets blocked.
+  preloadSignIn();
+  root.querySelector('[data-welcome="signin"]')?.addEventListener('click', () => {
+    close();
+    void signIn().then(
+      () => toast('Signed in. Your solves now sync through Google Drive.', { kind: 'good' }),
+      (e: Error) => toast(e.message, { kind: 'bad' }),
+    );
   });
   root.querySelector('[data-welcome="import"]')?.addEventListener('click', () => {
     close();

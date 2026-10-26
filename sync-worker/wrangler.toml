@@ -8,5 +8,5 @@ compatibility_date = "2026-10-01"
 routes = [{ pattern = "sync.inphner.com", custom_domain = true }]
 
 [vars]
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "962636826593-eluo0t25sr51s3hftefemmbra8td7n0b.apps.googleusercontent.com"
 ALLOWED_ORIGINS = "https://inphner.com,http://localhost"

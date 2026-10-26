@@ -20,7 +20,7 @@ import { download, DriveError, gzip, listFiles, remove, upload, type DriveFile }
 import { buildSyncDoc, fingerprint, mergeStates, parseSyncDoc, type SyncDoc } from './merge.ts';
 
 /** Fill these in once the Google Cloud client and the worker exist (see sync-worker/README.md). */
-export const GOOGLE_CLIENT_ID = '';
+export const GOOGLE_CLIENT_ID = '962636826593-eluo0t25sr51s3hftefemmbra8td7n0b.apps.googleusercontent.com';
 export const SYNC_WORKER = 'https://sync.inphner.com';
 
 const SCOPE = 'openid email https://www.googleapis.com/auth/drive.appdata';

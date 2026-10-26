@@ -438,10 +438,11 @@ it's empty). Setup steps: `sync-worker/README.md`.
   `timerBusy()`/`trainerBusy()`. Cycles are serialised across tabs with a Web Lock.
 - Erase everything also signs this browser out of sync (the Drive copy is kept). A recent sync
   counts as a backup for the backup reminder.
-- **Not yet verified against real Google/Drive**: the Drive calls and the sign-in popup have only
-  run against fakes. Check them end to end once the client ID exists.
-- When it goes live, update the guide pages that say nothing is uploaded
-  (`cstimer-alternative`, `offline-cube-timer`) and the welcome sheet's "only in this browser" line.
+- **Verified for real** (v1.6.0) on localhost: Google sign-in, the worker, Drive upload, and two
+  browsers (Chrome + Firefox, same Google account) syncing solves both ways.
+- Live since v1.6.0: client ID `962636826593-…` in `sync.ts` and `wrangler.toml`. Its authorized
+  JavaScript origins are exactly `https://inphner.com` and `http://localhost` (plain http: XAMPP).
+  The welcome sheet offers the sign-in too.
 
 ## Hosting and the backup reminder (since v1.1.1)
 
@@ -514,7 +515,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 - Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
   Email Routing; Settings → About and the README link it.
 
-## Release status (v1.5.1)
+## Release status (v1.6.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in
