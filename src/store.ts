@@ -13,8 +13,9 @@
  * Emits 'inphner:solves' (detail: { sessionId }) and 'inphner:sessions'.
  */
 import { eventDef, isEvent } from './events.ts';
-import { clearAll, countByIndex, getAll, getAllByRange, lastByRange, persist, write } from './db/idb.ts';
+import { clearAll, countByIndex, get, getAll, getAllByRange, lastByRange, persist, write, type StoreName } from './db/idb.ts';
 import { mergeById } from './io/backup.ts';
+import type { MergeResult, SyncState, Tombstones } from './sync/merge.ts';
 import type { Session, Solve } from './types.ts';
 import { toast } from './ui/toast.ts';
 
@@ -27,6 +28,35 @@ let currentId = '';
 const cache = new Map<string, Solve[]>();
 const unsaved = new Map<string, Solve>();
 let dismissUnsaved: (() => void) | null = null;
+
+/**
+ * Tombstones (id → deletedAt) for everything deleted, so Drive sync can tell
+ * "deleted here" from "not seen here yet" (sync/merge.ts). Written in the same
+ * transaction as the delete itself.
+ */
+const DELETED_KEY = 'sync:deleted';
+let deleted: Tombstones = {};
+
+function tombstoneOps(ids: string[]): { store: StoreName; putKeyed: [IDBValidKey, unknown][] } {
+  const now = Date.now();
+  for (const id of ids) deleted[id] = now;
+  return { store: 'meta', putKeyed: [[DELETED_KEY, deleted]] };
+}
+
+/**
+ * Bring records back (Undo, a backup import): a fresh updatedAt is what lets
+ * them outlive their tombstone on every synced device too.
+ */
+function revive<T extends { id: string; updatedAt: number }>(list: T[], now = Date.now()): boolean {
+  let any = false;
+  for (const x of list) {
+    if (!(x.id in deleted)) continue;
+    delete deleted[x.id];
+    x.updatedAt = now;
+    any = true;
+  }
+  return any;
+}
 
 export function uuid(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -67,6 +97,7 @@ let ready: Promise<void> | null = null;
 export function initStore(): Promise<void> {
   ready ??= (async () => {
     sessions = await getAll<Session>('sessions');
+    deleted = (await get<Tombstones>('meta', DELETED_KEY)) ?? {};
     if (!sessions.length) {
       let event = '333';
       try {
@@ -180,6 +211,7 @@ export async function deleteSession(id: string): Promise<DeletedSession | null> 
   await write([
     { store: 'solves', del: solves.map((x) => x.id) },
     { store: 'sessions', del: [id] },
+    tombstoneOps([id, ...solves.map((x) => x.id)]),
   ]);
   sessions = sessions.filter((x) => x.id !== id);
   cache.delete(id);
@@ -192,7 +224,9 @@ export async function deleteSession(id: string): Promise<DeletedSession | null> 
 }
 
 export async function restoreSession(d: DeletedSession): Promise<void> {
-  await write([{ store: 'sessions', put: [d.session] }, { store: 'solves', put: d.solves }]);
+  revive([d.session]);
+  revive(d.solves);
+  await write([{ store: 'sessions', put: [d.session] }, { store: 'solves', put: d.solves }, { store: 'meta', putKeyed: [[DELETED_KEY, deleted]] }]);
   sessions.push(d.session);
   cache.set(d.session.id, sortSolves([...d.solves]));
   bump(d.session.id, 'other');
@@ -206,7 +240,7 @@ export async function mergeSessions(fromId: string, intoId: string): Promise<{ f
   const into = sessionById(intoId);
   if (!from || !into || fromId === intoId) return null;
   const moved = await moveSolves((await loadSolves(fromId)).map((s) => s.id), intoId);
-  await write([{ store: 'sessions', del: [fromId] }]);
+  await write([{ store: 'sessions', del: [fromId] }, tombstoneOps([fromId])]);
   sessions = sessions.filter((x) => x.id !== fromId);
   cache.delete(fromId);
   if (currentId === fromId) await setCurrentSession(intoId);
@@ -215,7 +249,8 @@ export async function mergeSessions(fromId: string, intoId: string): Promise<{ f
 }
 
 export async function unmerge(m: { from: Session; moved: string[] }): Promise<void> {
-  await write([{ store: 'sessions', put: [m.from] }]);
+  revive([m.from]);
+  await write([{ store: 'sessions', put: [m.from] }, { store: 'meta', putKeyed: [[DELETED_KEY, deleted]] }]);
   sessions.push(m.from);
   cache.set(m.from.id, []);
   await moveSolves(m.moved, m.from.id);
@@ -340,7 +375,7 @@ export async function deleteSolves(ids: string[]): Promise<Solve[]> {
   }
   if (!removed.length) return [];
   try {
-    await write([{ store: 'solves', del: removed.map((s) => s.id) }]);
+    await write([{ store: 'solves', del: removed.map((s) => s.id) }, tombstoneOps(removed.map((s) => s.id))]);
   } catch {
     for (const s of removed) cache.get(s.sessionId)?.push(s);
     touched.forEach((sid) => sortSolves(cache.get(sid)!));
@@ -366,7 +401,8 @@ export async function restoreSolves(solves?: Solve[]): Promise<Solve[]> {
     list = deleteStack.pop();
   }
   if (!list?.length) return [];
-  await write([{ store: 'solves', put: list }]);
+  revive(list);
+  await write([{ store: 'solves', put: list }, { store: 'meta', putKeyed: [[DELETED_KEY, deleted]] }]);
   const touched = new Set<string>();
   for (const s of list) {
     const target = cache.get(s.sessionId);
@@ -496,7 +532,7 @@ export async function importIntoSession(sessionId: string, solves: NewSessionImp
 export async function removeSessions(ids: string[]): Promise<void> {
   const solveIds: string[] = [];
   for (const id of ids) (await loadSolves(id)).forEach((x) => solveIds.push(x.id));
-  await write([{ store: 'solves', del: solveIds }, { store: 'sessions', del: ids }]);
+  await write([{ store: 'solves', del: solveIds }, { store: 'sessions', del: ids }, tombstoneOps([...ids, ...solveIds])]);
   sessions = sessions.filter((x) => !ids.includes(x.id));
   ids.forEach((id) => cache.delete(id));
   if (!sessions.length) await createSession({ name: 'Main', event: '333' }, false);
@@ -517,21 +553,62 @@ export async function mergeBackup(b: { sessions: Session[]; solves: Solve[] }): 
   const cur = await everything();
   const ms = mergeById(cur.sessions, b.sessions);
   const mv = mergeById(cur.solves, b.solves);
-  await write([{ store: 'sessions', put: ms.put }, { store: 'solves', put: mv.put }]);
-  // Reload from the database: simplest way to get every cache consistent.
+  // Deleted here before: importing the backup means wanting them back.
+  const now = Date.now();
+  revive(ms.put, now);
+  revive(mv.put, now);
+  await write([{ store: 'sessions', put: ms.put }, { store: 'solves', put: mv.put }, { store: 'meta', putKeyed: [[DELETED_KEY, deleted]] }]);
+  await reloadAll();
+  return { sessions: ms.put.length, solves: mv.put.length };
+}
+
+/** Reload from the database: the simplest way to get every cache consistent after a bulk change. */
+async function reloadAll(): Promise<void> {
   sessions = await getAll<Session>('sessions');
+  if (!sessions.length) await createSession({ name: 'Main', event: '333' }, false);
   cache.clear();
   for (const x of sessions) bump(x.id, 'other');
-  await loadSolves(currentSession().id);
+  if (!sessionById(currentId)) {
+    currentId = (orderedSessions()[0] ?? sessions[0]!).id;
+    try { localStorage.setItem(CURRENT_KEY, currentId); } catch { /* blocked */ }
+  }
+  await loadSolves(currentId);
   emitSessions();
-  emitSolves(currentSession().id);
-  return { sessions: ms.put.length, solves: mv.put.length };
+  emitSolves(currentId);
+}
+
+/* ------------------------------------------------------------------- sync */
+
+/** Everything Drive sync needs: every session, every solve, every tombstone. */
+export async function syncSnapshot(): Promise<SyncState> {
+  const all = await everything();
+  return { ...all, deleted: { ...deleted } };
+}
+
+/**
+ * Apply a merge from sync/merge.ts in one transaction. Anything changed here
+ * since the snapshot the merge started from keeps the newer copy.
+ */
+export async function applySync(r: MergeResult): Promise<void> {
+  const fresh = new Map<string, number>();
+  for (const s of sessions) fresh.set(s.id, s.updatedAt);
+  for (const list of cache.values()) for (const s of list) fresh.set(s.id, s.updatedAt);
+  const newer = <T extends { id: string; updatedAt: number }>(x: T) => !(x.updatedAt < (fresh.get(x.id) ?? -Infinity));
+  const keep = new Set(unsaved.keys());
+  for (const [id, t] of Object.entries(r.state.deleted)) if (!(id in deleted) || t > deleted[id]!) deleted[id] = t;
+  await write([
+    { store: 'sessions', put: r.putSessions.filter(newer), del: r.delSessions },
+    { store: 'solves', put: r.putSolves.filter(newer), del: r.delSolves.filter((id) => !keep.has(id)) },
+    { store: 'meta', putKeyed: [[DELETED_KEY, deleted]] },
+  ]);
+  await reloadAll();
 }
 
 /** Erase every session and solve, then start fresh with an empty "Main". */
 export async function eraseEverything(): Promise<void> {
   await clearAll();
   sessions = [];
+  deleted = {};
   cache.clear();
   unsaved.clear();
   await createSession({ name: 'Main', event: '333' }, false);

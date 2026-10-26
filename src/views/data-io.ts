@@ -19,6 +19,7 @@ import {
   storageProtectedNow,
 } from '../store.ts';
 import { localDay } from '../stats/chart-data.ts';
+import { deleteDriveCopy, forgetSync, preloadSignIn, signIn, signOut, syncNow, syncStatus } from '../sync/sync.ts';
 import { esc } from '../ui/dom.ts';
 import { openModal } from '../ui/modal.ts';
 import { toast } from '../ui/toast.ts';
@@ -265,7 +266,7 @@ export function backupDue(): boolean {
 export function dataCard(): string {
   return `
     <section class="card" data-role="data">
-      <div class="card-head"><h3>Data</h3><small>Everything lives in this browser.</small></div>
+      <div class="card-head"><h3>Data</h3><small>${syncStatus().phase === 'off' || syncStatus().phase === 'unconfigured' ? 'Everything lives in this browser.' : 'Synced through Google Drive.'}</small></div>
       <p class="${backupDue() ? 'text-warn' : 'text-dim'}" style="margin:0 0 6px">${esc(lastExportText())}</p>
       <p class="${storageProtectedNow() ? 'text-dim' : 'text-warn'}" style="margin:0 0 12px">${esc(storageProtectedNow()
         ? "This browser has marked your solves as protected, so they won't be cleared to free up space."
@@ -280,7 +281,71 @@ export function dataCard(): string {
     </section>`;
 }
 
+/* --------------------------------------------------------- settings: sync */
+
+function ago(t: number): string {
+  const s = Math.round((Date.now() - t) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} days ago`;
+}
+
+export function syncCard(): string {
+  const st = syncStatus();
+  if (st.phase === 'unconfigured') return '';
+  preloadSignIn();
+  const signedIn = st.phase !== 'off';
+  const line = !signedIn
+    ? 'Sign in with Google and your sessions and solves stay the same on every device you use. They go in a hidden inphner folder in your own Google Drive, which nothing else can see.'
+    : st.phase === 'reconnect' ? st.message
+      : st.phase === 'syncing' ? 'Syncing…'
+        : st.phase === 'error' ? st.message
+          : st.lastSync ? `Last synced ${ago(st.lastSync)}.` : 'Not synced yet.';
+  const warn = st.phase === 'error' || st.phase === 'reconnect';
+  return `
+    <section class="card" data-role="sync">
+      <div class="card-head"><h3>Sync</h3><small>${signedIn && st.email ? esc(st.email) : 'Google Drive'}</small></div>
+      <p class="${warn ? 'text-warn' : 'text-dim'}" style="margin:0 0 12px" aria-live="polite">${esc(line)}</p>
+      ${!signedIn && st.message ? `<p class="text-warn" style="margin:-6px 0 12px">${esc(st.message)}</p>` : ''}
+      <div class="data-actions">
+        ${!signedIn || st.phase === 'reconnect'
+          ? '<button type="button" class="btn btn-primary btn-sm" data-action="sync-signin">Sign in with Google</button>'
+          : `<button type="button" class="btn btn-sm" data-action="sync-now"${st.phase === 'syncing' ? ' disabled' : ''}>Sync now</button>`}
+        <span class="grow"></span>
+        ${signedIn ? `<button type="button" class="btn btn-sm" data-action="sync-signout">Sign out</button>
+        <button type="button" class="btn btn-danger btn-sm" data-action="sync-delete">Delete Drive copy…</button>` : ''}
+      </div>
+    </section>`;
+}
+
+function deleteDriveDialog(): void {
+  openModal({
+    title: 'Delete the Drive copy?',
+    danger: true,
+    confirmLabel: 'Delete',
+    bodyHtml: `<p>inphner's files in your Google Drive will be deleted, and this browser stops syncing. Your solves in this browser stay.</p>
+      <p class="text-dim">Any other device that's still signed in will upload its copy again the next time it syncs, so sign out there first.</p>`,
+    onConfirm: async () => {
+      try {
+        await deleteDriveCopy();
+        toast('The Drive copy was deleted.');
+      } catch {
+        toast('Could not delete the Drive copy. Try again when you are online.', { kind: 'bad' });
+        return false;
+      }
+    },
+  });
+}
+
 export function handleDataAction(action: string): boolean {
+  if (action === 'sync-signin') {
+    void signIn().then(() => toast('Signed in. Your solves now sync through Google Drive.', { kind: 'good' }), () => {});
+    return true;
+  }
+  if (action === 'sync-now') { void syncNow(); return true; }
+  if (action === 'sync-signout') { void signOut().then(() => toast('Signed out. The solves here and the Drive copy are both kept.')); return true; }
+  if (action === 'sync-delete') { deleteDriveDialog(); return true; }
   if (action === 'data-export') { openExport(); return true; }
   if (action === 'data-import') { void openImport(); return true; }
   if (action === 'data-erase') { eraseDialog(); return true; }
@@ -294,12 +359,15 @@ function eraseDialog(): void {
     confirmLabel: 'Erase',
     bodyHtml: `
       <p>Every session and every solve in this browser will be deleted. This can't be undone. Export a backup first if you might want them.</p>
+      ${syncStatus().phase !== 'off' && syncStatus().phase !== 'unconfigured'
+        ? '<p class="text-dim">This browser also stops syncing. Your Google Drive copy is kept, and signing in again brings it back.</p>' : ''}
       <label><span>Type <strong>delete</strong> to confirm</span><input name="confirm" autocomplete="off" spellcheck="false"></label>`,
     onConfirm: async (m) => {
       if (m.querySelector<HTMLInputElement>('[name="confirm"]')!.value.trim().toLowerCase() !== 'delete') {
         m.querySelector<HTMLInputElement>('[name="confirm"]')!.focus();
         return false;
       }
+      forgetSync();
       await eraseEverything();
       toast('Everything was erased.');
     },

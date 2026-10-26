@@ -85,6 +85,7 @@ export async function maybeWelcome(isBusy: () => boolean): Promise<void> {
       <div class="welcome-guides">
         <small>Guides, in a new tab</small>
         <div>${GUIDES.map((g) => `<a class="btn btn-sm" href="${guideHref(g.slug)}" target="_blank" rel="noopener">${g.label}</a>`).join('')}</div>
+        <small><a href="${guideHref('privacy')}" target="_blank" rel="noopener">Privacy policy</a> · <a href="${guideHref('terms')}" target="_blank" rel="noopener">Terms</a></small>
       </div>`,
   });
   root.querySelector('[data-welcome="import"]')?.addEventListener('click', () => {

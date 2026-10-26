@@ -414,6 +414,35 @@ Quick self-check in the console:
 `getComputedStyle(document.body).backgroundColor` → `rgba(0, 0, 0, 0)`;
 `document.documentElement.scrollWidth <= innerWidth` at 375px.
 
+## Google Drive sync (src/sync/, sync-worker/)
+
+Optional, off until `GOOGLE_CLIENT_ID` in `src/sync/sync.ts` is set (the Sync card is hidden while
+it's empty). Setup steps: `sync-worker/README.md`.
+
+- **One file per device** (`device-<id>.json.gz` in Drive's hidden `appDataFolder`, scope
+  `drive.appdata`). Each device writes only its own file and reads the others', so two devices can
+  never overwrite each other. A cycle lists the folder, downloads only files whose `modifiedTime`
+  changed, merges, and uploads its own file when `fingerprint()` moved.
+- **`sync/merge.ts` is PURE and tested**: newer `updatedAt` wins per id; deletes leave
+  **tombstones** (`meta` key `sync:deleted`, written in the delete's own transaction in
+  `store.ts`); a tombstone beats any copy not newer than it. Undo/restore and backup import
+  **bump `updatedAt`** (`revive()`), which is how a restored record outlives its tombstone.
+  A solve whose session was deleted elsewhere goes to a `recovered-<old id>` session. A new
+  browser's empty "Main" is dropped on its first sync. Merging is order-independent and idempotent.
+- **The worker** (`sync-worker/index.ts`, Cloudflare, `sync.inphner.com`) exists only because a
+  browser can't renew Google tokens on its own (they last 1 h). It holds the client secret and
+  hands the browser a refresh token sealed with AES-GCM; it stores nothing. `worker.test.ts` runs
+  it against a fake Google.
+- Never touches the network offline. Google's sign-in script loads only when the Sync card is
+  shown to someone signed out (the popup has to open inside the click). Never applies a merge while
+  `timerBusy()`/`trainerBusy()`. Cycles are serialised across tabs with a Web Lock.
+- Erase everything also signs this browser out of sync (the Drive copy is kept). A recent sync
+  counts as a backup for the backup reminder.
+- **Not yet verified against real Google/Drive**: the Drive calls and the sign-in popup have only
+  run against fakes. Check them end to end once the client ID exists.
+- When it goes live, update the guide pages that say nothing is uploaded
+  (`cstimer-alternative`, `offline-cube-timer`) and the welcome sheet's "only in this browser" line.
+
 ## Hosting and the backup reminder (since v1.1.1)
 
 - **GitHub Pages** serves `public/` on every push to main (`.github/workflows/pages.yml`). It
@@ -472,6 +501,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
   `GUIDES` too.
 - **`public/og.png`** (1200×630) is rendered from `tools/og.html` by `node tools/og.mjs`
   (qlmanage onto a 1200² canvas, then a centred `sips` crop). Re-run it after changing the look.
+- **`public/privacy/` and `public/terms/`** (since the Drive sync work): Google's OAuth branding requires both, and the Limited Use sentence in the privacy page is what Google's review looks for. Linked from Settings → About, the welcome sheet, the home page's `<noscript>` and every doc footer. Keep every claim true when the app changes (no analytics, no third-party scripts, what sync stores).
 - `public/robots.txt` points at the sitemap. Search Console is verified by a DNS TXT record on
   Cloudflare, which must stay.
 - **Welcome sheet** (`views/welcome.ts`), once per browser: shown when there is no

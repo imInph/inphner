@@ -32,6 +32,7 @@ import { warm } from './scramble/generator.ts';
 import { openSessionPicker, renderSessionPill } from './views/session-picker.ts';
 import { VERSION } from './version.ts';
 import { initKeepAwake } from './keep-awake.ts';
+import { initSync, syncStatus } from './sync/sync.ts';
 
 const HOME_TITLE = 'inphner · Speedcubing Timer, Stats & Algorithm Trainer';
 
@@ -270,6 +271,7 @@ async function boot(): Promise<void> {
   activate(parseRoute());
 
   registerServiceWorker(() => timerBusy() || trainerBusy());
+  await initSync(() => timerBusy() || trainerBusy());
   void watchBackups();
   welcomeOnce();
   window.__inphnerLoaded = true;
@@ -295,12 +297,15 @@ async function watchBackups(): Promise<void> {
   const protectedStorage = await storageProtection();
   const read = (): BackupState => {
     const p = prefs();
-    return { now: Date.now(), lastExportAt: p.lastExportAt, lastNudgeAt: p.lastNudgeAt, solves: solveCount, protectedStorage };
+    // A Drive sync is a copy outside this browser too, which is all the reminder is about.
+    const lastExportAt = Math.max(p.lastExportAt, syncStatus().lastSync);
+    return { now: Date.now(), lastExportAt, lastNudgeAt: p.lastNudgeAt, solves: solveCount, protectedStorage };
   };
 
   paintBackupDot(backupOverdue(read()));
   // An export (or an import) changes the answer; repaint without recounting.
   window.addEventListener('inphner:prefs', () => paintBackupDot(backupOverdue(read())));
+  window.addEventListener('inphner:sync', () => paintBackupDot(backupOverdue(read())));
   window.addEventListener('inphner:solves', () => { solveCount++; });
 
   const state = read();

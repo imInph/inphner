@@ -17,7 +17,7 @@ import { esc, onAction } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { toast } from '../ui/toast.ts';
 import { handlePrefAction, handlePrefInput, prefsCards } from './settings-prefs.ts';
-import { dataCard, handleDataAction } from './data-io.ts';
+import { dataCard, handleDataAction, syncCard } from './data-io.ts';
 import { GUIDES, guideLink } from '../guides.ts';
 import { CONTACT_EMAIL, SOURCE_URL, VERSION } from '../version.ts';
 
@@ -117,7 +117,7 @@ function aboutCard(): string {
       <p>Free software under the
         <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU AGPL-3.0</a>.
         Modify it and run it for others, and you owe them the source too.</p>
-      <p><a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a></p>
+      <p><a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a> · ${guideLink('privacy', 'Privacy policy')} · ${guideLink('terms', 'Terms')}</p>
       <p>Guides: ${GUIDES.map((g) => guideLink(g.slug, g.label)).join(' · ')}</p>
       <p>Found a bug, or missing something? Write to
         <a href="mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`inphner v${VERSION} feedback`)}">${CONTACT_EMAIL}</a>.</p>
@@ -133,7 +133,7 @@ function render(container: HTMLElement): void {
         : focused.dataset.action ? `[data-action="${focused.dataset.action}"]`
           : focused.dataset.role ? `[data-role="${focused.dataset.role}"]` : null)
     : null;
-  container.innerHTML = `<div class="grid settings-grid">${appearanceCard(draft)}${prefsCards()}${dataCard()}${aboutCard()}</div>`;
+  container.innerHTML = `<div class="grid settings-grid">${appearanceCard(draft)}${prefsCards()}${dataCard()}${syncCard()}${aboutCard()}</div>`;
   if (refocus) {
     const el = container.querySelector<HTMLElement>(refocus);
     el?.focus({ preventScroll: true });
@@ -214,6 +214,17 @@ export function renderSettings(container: HTMLElement): void {
       if (thumb) thumb.style.backgroundImage = url ? cssUrl(url) : '';
       container.querySelector<HTMLButtonElement>('[data-action="revert"]')!.disabled = !isDirty();
     }, 350);
+  });
+
+  // Sync status changes on its own; repaint the two cards that show it.
+  window.addEventListener('inphner:sync', () => {
+    if (container.hidden) return;
+    for (const [role, html] of [['sync', syncCard], ['data', dataCard]] as const) {
+      const card = container.querySelector(`[data-role="${role}"]`);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html();
+      if (card && tmp.firstElementChild) card.replaceWith(tmp.firstElementChild);
+    }
   });
 
   // The theme button in the topbar saves immediately; keep the card in step.

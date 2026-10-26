@@ -1,0 +1,12 @@
+# inphner sync worker. Deploy with `npx wrangler deploy` from this folder.
+# Secrets (never in this file):
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET
+#   npx wrangler secret put SEAL_KEY        # openssl rand -base64 32
+name = "inphner-sync"
+main = "index.ts"
+compatibility_date = "2026-10-01"
+routes = [{ pattern = "sync.inphner.com", custom_domain = true }]
+
+[vars]
+GOOGLE_CLIENT_ID = ""
+ALLOWED_ORIGINS = "https://inphner.com,http://localhost"
