@@ -17,6 +17,7 @@ interface FakeEvent { waitUntil(p: Promise<unknown>): void }
 
 function harness() {
   const server = new Map<string, string>();     // url -> body
+  const redirects = new Map<string, string>();  // url -> where it moved
   const store = new Map<string, Map<string, Response>>();
   let online = true;
 
@@ -49,6 +50,8 @@ function harness() {
     fetches++;
     if (!online) throw new TypeError('Failed to fetch');
     const url = key(r);
+    const moved = redirects.get(url);
+    if (moved) return Response.redirect(moved, 301);
     const body = server.get(url.split('?')[0]!);
     return body === undefined ? new Response('missing', { status: 404 }) : new Response(body, { status: 200 });
   };
@@ -73,6 +76,7 @@ function harness() {
 
   return {
     server,
+    redirects,
     store,
     setOnline: (v: boolean) => { online = v; },
     fetches: () => fetches,
@@ -198,6 +202,15 @@ test('a broken server is treated like no server at all', async () => {
   h.server.delete(`${SCOPE}index.html`);   // a half-deployed build: 404s
   const page = await h.request(`${SCOPE}index.html`);
   assert.equal(await page!.text(), 'body:index.html', 'the cached shell wins over a 404');
+});
+
+test('a redirect reaches the page instead of the cached shell', async () => {
+  const h = seeded();
+  await h.fire('install');
+  h.redirects.set(`${SCOPE}privacy`, `${SCOPE}privacy/`);
+  const page = await h.request(`${SCOPE}privacy`, { mode: 'navigate' });
+  assert.equal(page!.status, 301);
+  assert.equal(page!.headers.get('location'), `${SCOPE}privacy/`);
 });
 
 test('what the worker leaves alone', async () => {

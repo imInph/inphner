@@ -90,6 +90,10 @@ async function handle(request: Request, strategy: Strategy, fallback?: string): 
   }
   try {
     const res = await fetch(request);
+    // A redirect is an answer, not a failure: GitHub Pages sends /privacy to
+    // /privacy/, and a page load sees that as an opaque redirect. Falling back
+    // to the cached shell there opened the timer instead of the page.
+    if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) return res;
     if (res.ok) {
       void store(request, res).catch(() => {});
       return res;
