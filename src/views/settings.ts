@@ -120,6 +120,7 @@ function aboutCard(): string {
       <p><a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a> · ${guideLink('privacy', 'Privacy policy')} · ${guideLink('terms', 'Terms')}</p>
       <p>Guides: ${GUIDES.map((g) => guideLink(g.slug, g.label)).join(' · ')}</p>
       <p class="text-dim">Web Tabanlı Uygulama Geliştirme dersinden Hamide Hocam, Erhan Hocam ve Binnur Hocam'a selamlar.</p>
+      <p class="text-dim">hello alp, alihan, timur, arda and tolga</p>
       <p>Found a bug, or missing something? Write to
         <a href="mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`inphner v${VERSION} feedback`)}">${CONTACT_EMAIL}</a>.</p>
     </section>`;

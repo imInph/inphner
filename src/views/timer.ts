@@ -116,6 +116,7 @@ export function renderTimer(el: HTMLElement): void {
             <form class="pill-input typing-input" data-no-timer autocomplete="off">
               ${icon('clock')}
               <input id="typing-input" inputmode="decimal" enterkeyhint="done" placeholder="Type a time: 1234, 1:02.34, DNF, 12.34+" aria-label="Type a time and press Enter" spellcheck="false">
+              <button type="submit" class="typing-submit" aria-label="Add this time">${icon('check')}</button>
             </form>` : ''}
           ${stackmat ? '<div class="stackmat-pill" id="stackmat-pill" data-no-timer data-chrome></div>' : ''}
           ${smartCube ? '<div class="stackmat-pill" id="smart-pill" data-no-timer data-chrome></div>' : ''}

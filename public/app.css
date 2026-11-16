@@ -843,6 +843,13 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 @media (hover: none) and (pointer: coarse) { .post-hint { display: none; } }
 
 .typing-input { width: min(100%, 460px); margin-top: 16px; }
+.typing-input input { width: 100%; padding-right: 62px; }
+.typing-submit {
+    position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border-radius: var(--radius-pill);
+    display: grid; place-items: center; background: var(--accent); color: var(--accent-fg);
+}
+.typing-submit .ico { position: static; left: auto; transform: none; color: inherit; }
 
 .chip.num { font-family: var(--font-rounded); font-weight: 620; font-variant-numeric: tabular-nums; }
 .chip.is-warn { color: var(--warn); }
