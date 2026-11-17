@@ -62,9 +62,9 @@ outstanding acceptance pass (see Release status). The rules that still hold:
 | Multi-BLD | N numbered 3BLD scrambles (N = pref `multiCubes`); after the stop a sheet asks solved/attempted; DNF when points < 0 or < 2 solved (9f12); no averages. |
 | Inspection | A tap (press+release, no hold) starts inspection; starting the solve still needs the hold to green. |
 | Bundler | **esbuild** (the spec allows it): cubing.js has bare imports (three, …) and a module worker that an import map can't reach. `tsc` is the type checker only. |
-| First-run keycap | Animates 3 times, then rests (B10: the only perpetual motion is the wallpaper drift). |
+| Less AI look | Nov 2026, owner's call, on top of "Plainer look". Radii now **5/8/12/14**. The wallpaper is one soft flat wash from the top (two linear gradients, `--wp-strength` .22 dark / .26 light): **no blobs, grain or drift**. The stat strip is **one** glass bar with hairline dividers, not separate pills. No topbar clock, no "Good evening" greeting, no gradient on the time, no 3D keycap on the first-run card, no tiny uppercase tracked labels (sentence case, `--text-dim`). The event pill and icon buttons use `--radius-sm`, not full pills. Refine the current look; don't propose new visual directions. |
 | Plainer look | v1.4.0, owner's call. Radii 6/10/14/18 (were 8/12/20/28). Glass is more solid (`--glass-bg` .74 dark / .78 light), blur 14px with no saturate, **no sheen, no hover glow**, hairline borders, small tight shadows. Wallpaper blobs weaker (`--wp-strength` .42 / .34) with an SVG grain in `.wallpaper::after`. Logo and `.btn-primary` are **flat accent fills** (no gradient, gloss or glow). `.badge-ico` is a bare icon in its tint colour, not a glossy tile. Copy aimed at new visitors is plain and first-person (no "Label:" lists, few colons). |
-| Default look | **Light theme + forest wallpaper** (owner's call, Oct 2026; was dark + aurora). Only what nobody has saved: `DEFAULT_APPEARANCE`, `parseTheme()` (anything but `'dark'` is light), the `<html>` attributes and theme-color in `index.html`, the manifest colours, the feature pages and `tools/og.html`. Accent **green** (owner's call). The app icons are still the blue badge. |
+| Default look | **Light theme + plain wallpaper** (owner's call, Nov 2026; was forest, before that dark + aurora). Only what nobody has saved: `DEFAULT_APPEARANCE`, `parseTheme()` (anything but `'dark'` is light), the `<html>` attributes and theme-color in `index.html`, the manifest colours, the feature pages and `tools/og.html`. Accent **green** (owner's call). The app icons are still the blue badge. |
 
 ## Commands
 
@@ -116,13 +116,13 @@ public/            what gets served (and synced to htdocs/inphner)
   manifest.webmanifest   PWA manifest (relative start_url/scope, so any path works)
   icons/           favicon.svg, PNGs (32/180/512), maskable variants
 src/
-  main.ts          boot: sidebar, router, drawer, global inline-onclick handlers, hotkeys, clock
+  main.ts          boot: sidebar, router, drawer, global inline-onclick handlers, hotkeys
   keep-awake.ts    site-wide screen wake lock; visibility/page-cache recovery and gesture retries
   guide.ts         small wake-lock entry for the static guide pages
   sw.ts            the service worker (see Offline); pwa/strategy.ts is PURE and tested,
                    pwa/register.ts registers it and offers the update
   router.ts        hash routes with params (#sessions?focus=<id>); views read params, never consume them
-  appearance.ts    PURE: appearance types, allowlists, parse/serialize, URL sanitiser, greeting (+ tests)
+  appearance.ts    PURE: appearance types, allowlists, parse/serialize, URL sanitiser (+ tests; `greetingFor` is unused since the greeting went)
   backup-nudge.ts  PURE: when to remind someone their solves live only in this browser (+ tests)
   prefs.ts         PURE parsePrefs + a tiny live store (localStorage 'inphner.prefs'; event 'inphner:prefs')
   theme.ts         applies theme/appearance to <html>, preview vs save, inphub fallback
@@ -408,7 +408,7 @@ whole session in the timer's per-solve path.
 Also: never hardcode a translucent background (use `--glass-bg(-strong)`); no glass inside glass
 (inside a panel use `--fill-1/2/3`); no raw hex outside the B2.1 exceptions (white knobs, `#fff`
 in gradients, badge tints, cube stickers); timer colour changes (armed → ready) are **never
-animated**; the wallpaper drift pauses while timing (`<html data-timing>`).
+animated**; nothing moves on its own (the wallpaper no longer drifts).
 
 Quick self-check in the console:
 `getComputedStyle(document.body).backgroundColor` → `rgba(0, 0, 0, 0)`;
@@ -515,7 +515,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 - Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
   Email Routing; Settings → About and the README link it.
 
-## Release status (v1.6.0)
+## Release status (v1.7.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in

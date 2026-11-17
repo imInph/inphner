@@ -26,6 +26,11 @@ test('parsePrefs: clamps and validates each field', () => {
   assert.deepEqual(p.strip, [5, 12]);
 });
 
+test('strip: the old saved default [5, 12, 100] becomes the new one with ao50', () => {
+  assert.deepEqual(parsePrefs(JSON.stringify({ strip: [5, 12, 100] })).strip, [5, 12, 50, 100]);
+  assert.deepEqual(parsePrefs(null).strip, [5, 12, 50, 100]);
+});
+
 test('inspection: on by default except BLD, FMC and "none"; overrides win', () => {
   assert.equal(inspectionDefault('333'), true);
   assert.equal(inspectionDefault('333bf'), false);

@@ -75,7 +75,7 @@ export function renderSolveList(el: HTMLElement, data: ListData, onOpen: (id: st
   let m = mounted.get(el);
   if (!m) {
     el.innerHTML = `
-      <div class="solve-table-head" aria-hidden="true"><span>#</span><span>time</span><span>ao5</span><span>ao12</span><span></span></div>
+      <div class="solve-table-head" aria-hidden="true"><span>#</span><span>Time</span><span>ao5</span><span>ao12</span><span></span></div>
       <div class="solve-scroll" role="list" tabindex="0" aria-label="Solves, newest first"><div class="solve-inner"></div></div>
       <div class="empty solve-empty" hidden>No solves in this session yet.</div>`;
     const scroller = el.querySelector<HTMLElement>('.solve-scroll')!;

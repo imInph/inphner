@@ -124,7 +124,6 @@ export function renderTimer(el: HTMLElement): void {
         </div>
         ${firstRun ? `
           <section class="card first-run-card" id="first-run" aria-labelledby="first-run-title">
-            <div class="keycap-wrap" aria-hidden="true"><div class="keycap">${touch ? 'hold' : 'space'}</div></div>
             <h2 id="first-run-title">${touch ? 'Hold to start' : 'Hold space to start'}</h2>
             ${touch
               ? `<p>Put your finger down anywhere and wait for the time to turn green. Let go to start, tap to stop.</p>
@@ -137,7 +136,7 @@ export function renderTimer(el: HTMLElement): void {
       </div>
       <div class="timer-bottom" id="timer-bottom" data-chrome>
         <button type="button" class="sheet-grab" data-sheet-toggle aria-label="Show all stats and solves"><span></span></button>
-        <div class="stat-strip" id="stat-strip"></div>
+        <div class="stat-strip glass" id="stat-strip"></div>
         <div class="timer-lower">
           <section class="card solves-card" aria-label="Solves">
             <div class="card-head">
@@ -599,15 +598,15 @@ function renderBottom(): void {
     // Multi-BLD ranks by points, then time: no averages.
     const best = [...solves].filter((x) => x.multi).sort((a, b) =>
       multiRank(a.multi!.solved, a.multi!.attempted, a.timeMs, a.penalty === 'DNF') - multiRank(b.multi!.solved, b.multi!.attempted, b.timeMs, b.penalty === 'DNF'))[0];
-    strip = [pill('best', 'best', best && best.penalty !== 'DNF' ? fmtSingle(best) : '–'), pill('n', 'attempts', String(sum.count))];
+    strip = [pill('best', 'Best', best && best.penalty !== 'DNF' ? fmtSingle(best) : '–'), pill('n', 'Attempts', String(sum.count))];
   } else {
     const { stats } = syncStats(session.id, solves);
     dnfs = stats.dnfs;
     const counts = eventDef(event).moves ? [3, 5, 12] : p.strip;
     strip = counts.map((n) => pill(`ao${n}`, STAT_LABEL(n), fmtStat(stats.current(n), event), `data-stat="${n}"`));
-    strip.push(pill('best', 'best', fmtStat(stats.bestSingle?.value ?? NaN, event), stats.bestSingle ? 'data-best' : ''));
-    strip.push(pill('mean', 'mean', fmtStat(stats.mean(p.dnfInMean), event), '', 'is-wide-only'));
-    strip.push(pill('n', 'n', String(solves.length)));
+    strip.push(pill('best', 'Best', fmtStat(stats.bestSingle?.value ?? NaN, event), stats.bestSingle ? 'data-best' : ''));
+    strip.push(pill('mean', 'Mean', fmtStat(stats.mean(p.dnfInMean), event), '', 'is-wide-only'));
+    strip.push(pill('n', 'Solves', String(solves.length)));
     const goal = goalPill(session, stats.current.bind(stats), stats.bestSingle?.value ?? NaN);
     if (goal) strip.push(goal);
   }
@@ -676,7 +675,7 @@ function pill(key: string, label: string, value: string, attrs = '', extra = '')
     html = [...b].map((c, i) => (c === a[i] || c === ' ' ? esc(c.trim()) : `<span class="roll">${esc(c)}</span>`)).join('');
   }
   const clickable = attrs.includes('data-');
-  return `<${clickable ? 'button type="button"' : 'div'} class="stat-pill glass ${extra} ${clickable ? 'is-link' : ''}" ${attrs}>
+  return `<${clickable ? 'button type="button"' : 'div'} class="stat-pill ${extra} ${clickable ? 'is-link' : ''}" ${attrs}>
     <span class="stat-label">${label}</span><span class="stat-value num">${html}</span></${clickable ? 'button' : 'div'}>`;
 }
 
@@ -699,8 +698,8 @@ function goalPill(session: Session, current: (n: number) => number, bestSingle: 
   const pct = done ? 100 : Number.isNaN(now) || now === DNF ? 0 : Math.max(0, Math.min(100, (session.goalMs / now) * 100));
   const togo = done ? 'done' : Number.isNaN(now) ? `needs ${n} solves` : now === DNF ? 'current is DNF'
     : `${fmtStat(now - session.goalMs, session.event)} s to go`;
-  return `<div class="stat-pill glass goal-pill ${done ? 'is-done' : ''}">
-    <span class="stat-label">goal · ${esc(goalText)}</span>
+  return `<div class="stat-pill goal-pill ${done ? 'is-done' : ''}">
+    <span class="stat-label">Goal · ${esc(goalText)}</span>
     <span class="goal-line"><span class="progress"><span style="width:${pct.toFixed(1)}%"></span></span><span class="goal-togo num">${esc(togo)}</span></span>
   </div>`;
 }

@@ -1,7 +1,7 @@
 /* ==========================================================================
    inphner: inphub's "Glass" design system, applied to a speedcubing timer.
 
-   Floating, rounded, translucent panels over a slowly drifting colourful
+   Rounded, translucent panels over a soft, flat colour wash
    wallpaper. Everything is switched by attributes on <html>:
      data-theme      dark | light
      data-accent     blue | indigo | purple | pink | red | orange | green | teal | graphite
@@ -27,7 +27,7 @@
     --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Nunito, Roboto, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-    --radius-xs: 6px;  --radius-sm: 10px;  --radius: 14px;  --radius-lg: 18px;  --radius-pill: 999px;
+    --radius-xs: 5px;  --radius-sm: 8px;  --radius: 12px;  --radius-lg: 14px;  --radius-pill: 999px;
     --gap: 16px;
     --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
     --text-xs: .72rem; --text-sm: .82rem; --text-base: .92rem; --text-md: 1rem;
@@ -59,7 +59,7 @@
     --shadow:    0 1px 2px rgba(0,0,0,.25), 0 6px 16px -10px rgba(0,0,0,.45);
     --shadow-lg: 0 18px 40px -16px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.2);
 
-    --wp-strength: .42;
+    --wp-strength: .22;
     --wp-scrim: rgba(3,4,8,.18);
 
     --accent: #3d8bff;  --accent-strong: #2a73e8;  --accent-fg: #ffffff;
@@ -83,7 +83,7 @@
     --shadow-sm: 0 1px 2px rgba(20,30,60,.08);
     --shadow:    0 1px 2px rgba(20,30,60,.06), 0 6px 16px -10px rgba(20,30,60,.18);
     --shadow-lg: 0 18px 40px -16px rgba(20,30,60,.28), 0 2px 6px rgba(20,30,60,.08);
-    --wp-strength: .34;  --wp-scrim: rgba(255,255,255,.10);
+    --wp-strength: .26;  --wp-scrim: rgba(255,255,255,.10);
     --accent: #0a66e8;  --accent-strong: #0853bd;
 
     --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23525a69' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -187,35 +187,23 @@ kbd {
 
 .wallpaper { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .wallpaper::before, .wp-thumb::before {
-    content: ""; position: absolute; inset: -18%;
+    content: ""; position: absolute; inset: 0;
+    /* One soft wash from the top corner, flat everywhere else: no blobs, no grain, no drift. */
     background:
-        radial-gradient(38% 42% at 18% 22%, var(--wp-1), transparent 72%),
-        radial-gradient(34% 40% at 84% 14%, var(--wp-2), transparent 72%),
-        radial-gradient(42% 44% at 72% 82%, var(--wp-3), transparent 72%),
-        radial-gradient(36% 40% at 16% 86%, var(--wp-4), transparent 72%);
+        linear-gradient(170deg, var(--wp-1) 0%, transparent 46%),
+        linear-gradient(200deg, var(--wp-3) 0%, transparent 34%);
     opacity: var(--wp-strength);
 }
-.wallpaper::before { animation: drift 80s ease-in-out infinite alternate; will-change: transform; }
-.wallpaper::after {
-    content: ""; position: absolute; inset: 0;
-    /* A fine grain over the colour: without it the gradients read as a render, not a surface. */
-    background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-        var(--wp-scrim);
-    opacity: .5;
-}
-[data-theme="light"] .wallpaper::after { opacity: .35; }
-@keyframes drift { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(4%,-3%,0) scale(1.06); } 100% { transform: translate3d(-3%,4%,0) scale(1.02); } }
+.wallpaper::after { content: ""; position: absolute; inset: 0; background: var(--wp-scrim); }
 
 [data-wallpaper="custom"] .wallpaper::before { inset: 0; opacity: 1; animation: none; background: var(--wp-image, none) center / cover no-repeat; }
 [data-wallpaper="custom"] { --wp-scrim: rgba(3,4,8,.42); }
 [data-theme="light"][data-wallpaper="custom"] { --wp-scrim: rgba(255,255,255,.38); }
-[data-glass="reduced"] .wallpaper::before { animation: none; }
 
 /* ==========================================================================
    Glass surfaces
    ========================================================================== */
-.glass, .card, .sidebar, .modal, .palette-box, .toast, .btn-glass, .pill, .clock, .popover, .sheet, #btn-theme {
+.glass, .card, .sidebar, .modal, .palette-box, .toast, .btn-glass, .pill, .popover, .sheet, #btn-theme {
     background-color: var(--glass-bg);
     background-image: var(--glass-sheen);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -251,8 +239,8 @@ kbd {
 .btn-glass { color: var(--text); }
 .btn-glass:hover { background-color: var(--glass-bg-strong); }
 .btn-block { width: 100%; }
-.btn-sm { padding: 5px 10px; font-size: .8rem; border-radius: 10px; }
-.btn-icon { padding: 0; width: 38px; height: 38px; border-radius: var(--radius-pill); }
+.btn-sm { padding: 5px 10px; font-size: .8rem; border-radius: var(--radius-sm); }
+.btn-icon { padding: 0; width: 38px; height: 38px; border-radius: var(--radius-sm); }
 .btn-sm.btn-icon { width: 30px; height: 30px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 #btn-theme { color: var(--text); }
@@ -396,14 +384,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     padding: 2px 10px 16px; display: flex; align-items: center;
 }
 .brand-version {
-    font-size: .64rem; font-weight: 600; letter-spacing: 0; color: var(--text-faint);
-    margin-left: 8px; padding: 1px 6px; border-radius: 6px; background: var(--fill-2);
+    font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--text-dim);
+    margin-left: 8px; padding: 1px 6px; border-radius: var(--radius-xs); background: var(--fill-2);
 }
 .nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .nav-item {
     display: flex; align-items: center; gap: 12px; padding: 9px 12px; width: 100%;
     border: none; background: none; font: inherit; cursor: pointer; text-align: left;
-    border-radius: 14px; color: var(--text-dim); font-size: .93rem; font-weight: 520; text-decoration: none;
+    border-radius: var(--radius-sm); color: var(--text-dim); font-size: .93rem; font-weight: 520; text-decoration: none;
     transition: background-color .15s, color .15s, transform .35s var(--spring);
     -webkit-tap-highlight-color: transparent;
 }
@@ -415,7 +403,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .nav-item:active { transform: scale(.97); }
 .nav-item.active {
     background: var(--accent-soft); color: var(--text); font-weight: 620;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
 }
 .nav-item.active .ico { color: var(--accent); opacity: 1; }
 .sidebar-foot {
@@ -432,18 +419,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .title-block { min-width: 0; }
-.greeting { font-size: .8rem; font-weight: 600; color: var(--text-dim); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .page-title {
     margin: 0; font-family: var(--font-display); font-size: 2.1rem; font-weight: 750;
     letter-spacing: -.035em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .hamburger { display: none; }
 .topbar-right { display: flex; align-items: center; gap: 8px; padding-bottom: 2px; }
-.clock {
-    font-family: var(--font-rounded); font-variant-numeric: tabular-nums; font-weight: 600;
-    color: var(--text); font-size: .9rem; padding: 7px 14px; border-radius: var(--radius-pill);
-    letter-spacing: -.01em; white-space: nowrap;
-}
 
 .view { padding: 4px 8px 32px; }
 /* `backwards`, never `both`: a filled animation leaves the view isolated and
@@ -537,7 +518,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .ring span { font-family: var(--font-rounded); font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .micro-label {
-    font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint);
+    font-size: .78rem; font-weight: 560; color: var(--text-dim);
 }
 
 /* ==========================================================================
@@ -564,7 +545,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 table.data { width: 100%; border-collapse: collapse; font-size: .9rem; }
 table.data th, table.data td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
-table.data th { color: var(--text-dim); font-weight: 650; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+table.data th { color: var(--text-dim); font-weight: 560; font-size: .8rem; }
 table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-rounded); }
 
 .flash { animation: flash 1.6s ease-out; }
@@ -717,7 +698,7 @@ body.palette-on { overflow: hidden; }
     background-size: cover; background-position: center;
     -webkit-tap-highlight-color: transparent;
 }
-.wp-thumb::before { inset: -10%; }
+.wp-thumb::before { opacity: .8; }
 .wp-thumb[data-wallpaper="custom"]::before { display: none; }
 .wp-thumb:hover { transform: translateY(-2px); }
 .wp-thumb:active { transform: scale(.96); }
@@ -801,12 +782,10 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
     font-family: var(--font-rounded); font-weight: 720; font-variant-numeric: tabular-nums;
     letter-spacing: -.045em; font-size: var(--time-size); line-height: 1.02;
     white-space: nowrap; padding: 0 .06em; cursor: default;
-    background: linear-gradient(180deg, var(--text), color-mix(in srgb, var(--text) 70%, var(--accent)));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+    color: var(--text);
     /* Only transform animates: colour changes are instant (cubers react to them). */
     transition: transform .45s var(--spring-soft);
 }
-.time.is-armed, .time.is-ready, .time.is-inspecting { background: none; }
 .time.is-inspecting { color: var(--text); }
 .time.is-inspecting[data-zone="warn"] { color: var(--warn); }
 .time.is-inspecting[data-zone="over"] { color: var(--bad); }
@@ -906,7 +885,7 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 
 /* ---- Event pill + picker ---- */
 .pill {
-    display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px 7px 11px; border-radius: var(--radius-pill);
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px 7px 11px; border-radius: var(--radius-sm);
     color: var(--text); font: inherit; font-size: .88rem; font-weight: 620; cursor: pointer; white-space: nowrap;
     transition: background-color .15s, transform .35s var(--spring); -webkit-tap-highlight-color: transparent;
 }
@@ -931,12 +910,13 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 /* ---- Stat strip + solve list (below the timer) ---- */
 .timer-bottom { display: flex; flex-direction: column; gap: 12px; }
 .sheet-grab { display: none; }
-.stat-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat-strip { display: flex; flex-wrap: wrap; align-self: flex-start; max-width: 100%; border-radius: var(--radius); overflow: hidden; }
 .stat-pill {
-    display: flex; flex-direction: column; gap: 1px; min-width: 84px; padding: 7px 16px 8px; border-radius: 18px;
-    cursor: default;
+    display: flex; flex-direction: column; gap: 1px; min-width: 84px; padding: 8px 18px 9px;
+    cursor: default; border: none; background: none; border-radius: 0;
 }
-.stat-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+.stat-pill + .stat-pill { box-shadow: inset 1px 0 0 var(--border); }
+.stat-label { font-size: .78rem; font-weight: 560; color: var(--text-dim); }
 .stat-value { font-family: var(--font-rounded); font-size: 1.15rem; font-weight: 680; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .solves-card { display: flex; flex-direction: column; height: clamp(180px, 22vh, 380px); padding: 14px 10px 8px 16px; }
@@ -950,7 +930,7 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 .solve-table-head, .solve-row {
     display: grid; grid-template-columns: 52px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 56px; align-items: center; gap: 8px;
 }
-.solve-table-head { padding: 0 10px 6px; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+.solve-table-head { padding: 0 10px 6px; font-size: .78rem; font-weight: 560; color: var(--text-dim); }
 .solve-table-head span:nth-child(n+2) { text-align: right; }
 .solve-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: 12px; }
 .solve-scroll:focus-visible { box-shadow: var(--focus-ring); }
@@ -972,8 +952,8 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 
 /* Stat pills that open detail. */
 button.stat-pill { font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background-color .15s, transform .35s var(--spring); }
-button.stat-pill:hover { background-color: var(--glass-bg-strong); }
-button.stat-pill:active { transform: scale(.96); }
+button.stat-pill:hover { background-color: var(--fill-1); }
+button.stat-pill:active { background-color: var(--fill-2); }
 /* Number roll: changed digits slide up into place (350 ms). */
 .roll { display: inline-block; animation: roll .35s var(--ease-out) backwards; }
 @keyframes roll { from { opacity: 0; transform: translateY(55%); } to { opacity: 1; transform: none; } }
@@ -1056,7 +1036,7 @@ a.popover-item { text-decoration: none; }
 .session-solves-card { display: flex; flex-direction: column; height: calc(100dvh - 150px); min-height: 420px; }
 .session-solves-card h3 small { font-size: .78rem; font-weight: 520; margin-left: 6px; }
 .session-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; margin-bottom: 12px; }
-.session-stats small { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+.session-stats small { display: block; font-size: .78rem; font-weight: 560; color: var(--text-dim); }
 .session-stats .num { font-size: 1.15rem; font-weight: 680; letter-spacing: -.02em; }
 .bulk-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 8px; border-radius: 14px; background: var(--fill-1); font-size: .85rem; }
 .bulk-bar .grow { flex: 1; }
@@ -1097,7 +1077,7 @@ a.popover-item { text-decoration: none; }
 .date-range input { width: auto; padding: 6px 10px; }
 .stats-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 14px 12px; }
-.summary-grid small { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+.summary-grid small { display: block; font-size: .78rem; font-weight: 560; color: var(--text-dim); }
 .summary-grid .num { font-size: 1.65rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
 .chart-box { position: relative; height: 260px; }
 .chart-box.tall { height: 320px; }
@@ -1251,20 +1231,6 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
 }
 /* The card has to fit the stage; on a short phone the "what is this" line is the one to give up. */
 @media (max-width: 768px) and (max-height: 760px) { .first-run-card .first-run-about { display: none; } }
-.keycap-wrap { display: grid; place-items: center; height: 64px; }
-/* A space-bar keycap that presses itself a few times, then rests (only the
-   wallpaper drift moves forever). */
-.keycap {
-    width: 168px; height: 44px; border-radius: 12px; display: grid; place-items: center;
-    font-size: .74rem; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim);
-    background: linear-gradient(180deg, var(--fill-3), var(--fill-1));
-    box-shadow: inset 0 1px 0 var(--glass-hi), 0 4px 0 var(--fill-2), 0 10px 18px -8px rgba(0,0,0,.45);
-    animation: keycapPress 2.4s var(--ease-out) .5s 3 backwards;
-}
-@keyframes keycapPress {
-    0%, 30%, 100% { transform: none; box-shadow: inset 0 1px 0 var(--glass-hi), 0 4px 0 var(--fill-2), 0 10px 18px -8px rgba(0,0,0,.45); color: var(--text-dim); }
-    40%, 62% { transform: translateY(3px); box-shadow: inset 0 1px 0 var(--glass-hi), 0 1px 0 var(--fill-2), 0 4px 10px -6px rgba(0,0,0,.45); color: var(--good); }
-}
 
 /* ==========================================================================
    Motion preference
@@ -1326,8 +1292,7 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
         border-color: var(--glass-border); box-shadow: var(--shadow);
     }
     .page-title { font-size: 1.45rem; }
-    .greeting { font-size: .72rem; }
-    .view { padding: 8px 12px calc(28px + env(safe-area-inset-bottom)); }
+        .view { padding: 8px 12px calc(28px + env(safe-area-inset-bottom)); }
 
     .grid-2, .grid-3, .sessions-grid { grid-template-columns: 1fr; }
     .case-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
@@ -1369,7 +1334,6 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
     .first-run-card h2 { font-size: 1.15rem; margin: 10px 0 6px; }
     .first-run-card p { font-size: .92rem; }
     .first-run-card .hint { margin-top: 10px; }
-    .keycap-wrap { height: 52px; }
     /* How much of the sheet peeks. Fixed at 350px it swallowed the timer on a
        short screen (an iPhone with Safari's toolbars showing), pushing the time
        under the sheet and hard against the scramble. The vh line is the
@@ -1398,13 +1362,17 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
         padding: 0; border: none; background: none; cursor: grab; touch-action: none;
     }
     .sheet-grab span { width: 40px; height: 5px; border-radius: 3px; background: var(--fill-3); }
-    .timer-bottom .stat-strip { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; gap: 6px; }
+    .timer-bottom .stat-strip {
+        flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; align-self: stretch; flex: none;
+        background: var(--fill-1); -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none;
+    }
     .timer-bottom .stat-strip::-webkit-scrollbar { display: none; }
     /* No glass inside glass: inside the sheet the pills and the card become fills. */
-    .timer-bottom .stat-pill, .timer-bottom .solves-card {
+    .timer-bottom .solves-card {
         background: var(--fill-1); -webkit-backdrop-filter: none; backdrop-filter: none; border-color: transparent; box-shadow: none;
     }
     .timer-bottom .stat-pill { min-width: 72px; padding: 6px 12px; flex: none; }
+    .timer-bottom .stat-pill:last-child { flex: 1 0 auto; }
     .timer-bottom .is-wide-only { display: none; }
     .timer-bottom .solves-card { flex: 1; height: auto; min-height: 0; padding: 10px 6px 6px 10px; }
     .timer-bottom .timer-lower { flex: 1; min-height: 0; display: flex; }
@@ -1442,8 +1410,7 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
 }
 
 @media (max-width: 480px) {
-    .clock { display: none; }
-}
+    }
 
 /* ==========================================================================
    Tools (A9): scramble sheet, solver hints, metronome, BLD memo

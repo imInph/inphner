@@ -1,13 +1,12 @@
 /**
  * inphner: app shell. Builds the sidebar, routes between views, and wires the
- * global chrome (theme button, drawer, clock, greeting, hotkeys).
+ * global chrome (theme button, drawer, hotkeys).
  *
  * Global chrome buttons use inline onclick="window.inphner*()" in index.html,
  * not addEventListener: in the owner's Firefox setup listeners on these
  * silently never fired (likely an extension) while DOM level-0 handlers are
  * immune. Keep it that way.
  */
-import { greetingFor } from './appearance.ts';
 import { parseRoute, routeKey, go, type Route } from './router.ts';
 import { toggleTheme } from './theme.ts';
 import { esc, isTyping } from './ui/dom.ts';
@@ -111,20 +110,6 @@ function activate(route: Route): void {
 function onRoute(): void {
   const route = parseRoute();
   if (routeKey(route) !== currentRoute) activate(route);
-}
-
-/* ----------------------------------------------------------- clock + greeting */
-
-function tick(): void {
-  const clock = document.getElementById('clock');
-  if (clock) {
-    clock.textContent = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
-  const greeting = document.getElementById('greeting');
-  if (greeting) {
-    const text = greetingFor(new Date().getHours());
-    if (greeting.textContent !== text) greeting.textContent = text;
-  }
 }
 
 /* ----------------------------------------------------------------- shortcuts */
@@ -247,8 +232,6 @@ async function boot(): Promise<void> {
   window.addEventListener('hashchange', onRoute);
   document.addEventListener('keydown', onKey);
 
-  tick();
-  setInterval(tick, 1000);
   alive();
 
   // Sessions + the current session's solves, before any view renders.

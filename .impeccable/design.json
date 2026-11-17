@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-17T12:00:00Z",
+  "title": "Design System: inphner",
+  "extensions": {
+    "colorMeta": {
+      "desk-green": { "role": "primary", "displayName": "Desk Green", "canonical": "#15803d", "tonalRamp": ["#0a2e17", "#0f4423", "#116932", "#15803d", "#22b847", "#5fd17f", "#a6e6b8", "#e3f7e9"] },
+      "desk-green-night": { "role": "primary", "displayName": "Night Green", "canonical": "#30d158" },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "#eef1f6", "tonalRamp": ["#10131a", "#2a2f39", "#525a69", "#8a92a1", "#b9c0cc", "#d9dee7", "#eef1f6", "#f8f9fb"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#10131a" },
+      "night": { "role": "neutral", "displayName": "Night", "canonical": "#07080c" },
+      "good": { "role": "status", "displayName": "Ready Green", "canonical": "#1f9d4c" },
+      "warn": { "role": "status", "displayName": "Armed Amber", "canonical": "#b45309" },
+      "bad": { "role": "status", "displayName": "DNF Red", "canonical": "#dc2f36" },
+      "forest-paper": { "role": "wallpaper", "displayName": "Forest Paper", "canonical": "#eef7ef" }
+    },
+    "typographyMeta": {
+      "timer": { "displayName": "Timer", "purpose": "The solve time only." },
+      "display": { "displayName": "Page title", "purpose": "The top bar's page title." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings." },
+      "title": { "displayName": "Card title", "purpose": "Card heads." },
+      "stat": { "displayName": "Stat", "purpose": "Averages and counts in the stat strip and stats cards." },
+      "body": { "displayName": "Body", "purpose": "Everything else." },
+      "label": { "displayName": "Label", "purpose": "Uppercase stat labels." },
+      "mono": { "displayName": "Mono", "purpose": "Scrambles, algorithms, notation." }
+    },
+    "shadows": [
+      { "name": "shadow-sm", "value": "0 1px 2px rgba(20,30,60,.08)", "purpose": "Tiny raised bits (light theme)." },
+      { "name": "shadow", "value": "0 1px 2px rgba(20,30,60,.06), 0 6px 16px -10px rgba(20,30,60,.18)", "purpose": "Every glass panel at rest (light theme)." },
+      { "name": "shadow-lg", "value": "0 18px 40px -16px rgba(20,30,60,.28), 0 2px 6px rgba(20,30,60,.08)", "purpose": "Modals, popovers, toasts, the open drawer (light theme)." },
+      { "name": "glass-blur", "value": "blur(14px)", "purpose": "Backdrop blur on every glass panel; none with reduced transparency." }
+    ],
+    "motion": [
+      { "name": "spring", "value": "cubic-bezier(.34, 1.56, .64, 1)", "purpose": "Presses, switch knob, small pops (0.96 squeeze)." },
+      { "name": "spring-soft", "value": "cubic-bezier(.22, 1.2, .36, 1)", "purpose": "Sheets, cards, toasts and the time landing." },
+      { "name": "ease-out", "value": "cubic-bezier(.16, 1, .3, 1)", "purpose": "Fades, progress, view enter." },
+      { "name": "drift", "value": "80s ease-in-out infinite alternate", "purpose": "Wallpaper drift; the only perpetual motion, paused while timing." }
+    ],
+    "breakpoints": [
+      { "name": "phone-small", "value": "400px" },
+      { "name": "phone", "value": "520px" },
+      { "name": "drawer", "value": "768px" },
+      { "name": "wide-timer", "value": "1100px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The everyday button: flat fill, soft corners, springs on press.",
+      "html": "<button class=\"ds-btn\">Export</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm, 10px); border: 1px solid transparent; background: var(--fill-2, rgba(16,22,40,.07)); color: var(--text, #10131a); font: inherit; font-size: .9rem; font-weight: 560; line-height: 1.2; cursor: pointer; transition: background-color .15s, transform .35s cubic-bezier(.34,1.56,.64,1); } .ds-btn:hover { background: var(--fill-3, rgba(16,22,40,.12)); } .ds-btn:active { transform: scale(.96); } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #15803d) 55%, transparent); }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Flat accent fill for the one main action in a card or sheet.",
+      "html": "<button class=\"ds-btn-primary\">Save</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-sm, 10px); border: 1px solid transparent; background: var(--accent, #15803d); color: var(--accent-fg, #fff); font: inherit; font-size: .9rem; font-weight: 560; line-height: 1.2; cursor: pointer; transition: background-color .15s, transform .35s cubic-bezier(.34,1.56,.64,1); } .ds-btn-primary:hover { background: var(--accent-strong, #116932); } .ds-btn-primary:active { transform: scale(.96); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #15803d) 55%, transparent); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Quiet secondary action.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: var(--radius-sm, 10px); border: 1px solid transparent; background: transparent; color: var(--text-dim, #525a69); font: inherit; font-size: .9rem; font-weight: 560; cursor: pointer; transition: background-color .15s, color .15s, transform .35s cubic-bezier(.34,1.56,.64,1); } .ds-btn-ghost:hover { color: var(--text, #10131a); background: var(--fill-1, rgba(16,22,40,.04)); } .ds-btn-ghost:active { transform: scale(.96); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #15803d) 55%, transparent); }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Tonal field inside a panel; accent border and soft halo on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Session name\">",
+      "css": ".ds-input { width: 100%; padding: 9px 12px; background: var(--fill-1, rgba(16,22,40,.04)); color: var(--text, #10131a); border: 1px solid var(--fill-2, rgba(16,22,40,.07)); border-radius: var(--radius-sm, 10px); font: inherit; font-size: 16px; transition: border-color .15s, box-shadow .2s, background-color .15s; } .ds-input::placeholder { color: var(--text-faint, #8a92a1); } .ds-input:hover { border-color: var(--border-strong, rgba(16,22,40,.18)); } .ds-input:focus { outline: none; border-color: var(--accent, #15803d); background-color: var(--fill-2, rgba(16,22,40,.07)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent, #15803d) 22%, transparent); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Glass panel with a small title head.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Session goals</h3><p class=\"ds-card-body\">Sub-15 ao12 · 0.42 s to go</p></div>",
+      "css": ".ds-card { border-radius: var(--radius, 14px); padding: 18px; background-color: var(--glass-bg, rgba(255,255,255,.78)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--glass-border, rgba(16,22,40,.08)); box-shadow: inset 0 1px 0 var(--glass-hi, rgba(255,255,255,.6)), 0 1px 2px rgba(20,30,60,.06), 0 6px 16px -10px rgba(20,30,60,.18); color: var(--text, #10131a); } .ds-card-title { margin: 0 0 14px; font-size: .92rem; font-weight: 650; letter-spacing: -.005em; } .ds-card-body { margin: 0; color: var(--text-dim, #525a69); font-size: .92rem; }"
+    },
+    {
+      "name": "Event Pill",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "Glass pill that opens the event and session picker.",
+      "html": "<button class=\"ds-pill\">3x3 · Main <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 9l6 6 6-6\"/></svg></button>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px 7px 11px; border-radius: 999px; background-color: var(--glass-bg, rgba(255,255,255,.78)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--glass-border, rgba(16,22,40,.08)); color: var(--text, #10131a); font: inherit; font-size: .88rem; font-weight: 620; cursor: pointer; transition: background-color .15s, transform .35s cubic-bezier(.34,1.56,.64,1); } .ds-pill svg { color: var(--text-dim, #525a69); } .ds-pill:hover { background-color: var(--glass-bg-strong, rgba(255,255,255,.92)); } .ds-pill:active { transform: scale(.96); } .ds-pill:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #15803d) 55%, transparent); }"
+    },
+    {
+      "name": "Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar entry; active one gets the soft accent background and an accent icon.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item is-active\" href=\"#\">Timer</a><a class=\"ds-nav-item\" href=\"#\">Stats</a><a class=\"ds-nav-item\" href=\"#\">Trainer</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 220px; } .ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 14px; color: var(--text-dim, #525a69); font-size: .93rem; font-weight: 520; text-decoration: none; transition: background-color .15s, color .15s, transform .35s cubic-bezier(.34,1.56,.64,1); } .ds-nav-item:hover { background: var(--fill-1, rgba(16,22,40,.04)); color: var(--text, #10131a); } .ds-nav-item:active { transform: scale(.97); } .ds-nav-item.is-active { background: color-mix(in srgb, var(--accent, #15803d) 20%, transparent); color: var(--text, #10131a); font-weight: 620; } .ds-nav-item:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #15803d) 55%, transparent); }"
+    },
+    {
+      "name": "Stat Pill",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Uppercase label over a rounded tabular value, in the strip under the timer.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-stat-label\">ao12</span><span class=\"ds-stat-value\">14.83</span></div>",
+      "css": ".ds-stat { display: inline-flex; flex-direction: column; gap: 1px; min-width: 84px; padding: 7px 16px 8px; border-radius: 18px; background-color: var(--glass-bg, rgba(255,255,255,.78)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--glass-border, rgba(16,22,40,.08)); } .ds-stat-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint, #8a92a1); } .ds-stat-value { font-family: ui-rounded, 'SF Pro Rounded', -apple-system, sans-serif; font-size: 1.15rem; font-weight: 680; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--text, #10131a); }"
+    },
+    {
+      "name": "Timer",
+      "kind": "custom",
+      "refersTo": "timer",
+      "description": "The solve time: the one large element. Amber when armed, green when ready; colour changes are never animated.",
+      "html": "<div class=\"ds-time\">12.47</div>",
+      "css": ".ds-time { font-family: ui-rounded, 'SF Pro Rounded', -apple-system, sans-serif; font-weight: 720; font-variant-numeric: tabular-nums; letter-spacing: -.045em; font-size: 5rem; line-height: 1.02; background: linear-gradient(180deg, var(--text, #10131a), color-mix(in srgb, var(--text, #10131a) 70%, var(--accent, #15803d))); -webkit-background-clip: text; background-clip: text; color: transparent; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Cuber's Desk",
+    "overview": "inphner should feel like a tidy desk at home where you practise: personal, light, everything in reach, nothing shouting. Frosted panels sit over a soft, slowly drifting wallpaper the way papers sit on a wooden desk. The one big thing on the desk is the time; every other object is small, quiet and put away until you reach for it. The system grew out of inphub's Glass design and was made plainer in v1.4.0, because the glossy original read as obviously AI-made. Controls are soft and tactile: gently rounded, flat fills, a small spring on press.",
+    "keyCharacteristics": [
+      "Frosted, fairly solid glass panels over a soft wallpaper with a fine grain.",
+      "One big rounded, tabular time; everything else small and calm.",
+      "Flat accent fills, hairline borders, small tight shadows.",
+      "A small spring on press; nothing moves on its own except the wallpaper drift.",
+      "Light + forest + green by default; dark, eight more accents and reduced transparency fully supported."
+    ],
+    "rules": [
+      { "name": "The Plain Colour Rule", "body": "--bg, --text-dim, --border, --accent, --good, --warn, --bad and --purple stay plain colours, never color-mix(): Chart.js reads them at draw time. Only derived tints (--accent-soft, badge backgrounds) are mixed.", "section": "colors" },
+      { "name": "The Signal Rule", "body": "Green and amber on the time mean \"ready\" and \"armed\". Don't reuse them for decoration anywhere a cuber might glance mid-hold.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Every time, average, count or clock uses the rounded face with tabular figures, so numbers never shift sideways as they change.", "section": "typography" },
+      { "name": "The 16px Field Rule", "body": "Form fields are at least 16px, or iOS zooms in on focus.", "section": "typography" },
+      { "name": "The No Glass-in-Glass Rule", "body": "Inside a panel, use Fill 1/2/3. A glass panel never sits inside another.", "section": "elevation" },
+      { "name": "The Clean Ancestor Rule", "body": "Only <html> paints a background, overlays put their tint and blur on ::before, and no transform/filter (or forwards/both animation fill) stays on an ancestor of a glass panel. Any of those silently stops the blur.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use the tokens (--accent, --glass-bg, --fill-*, --radius-*) for every colour, fill and corner.",
+      "Do put hover effects inside @media (hover: hover) and give every pressable thing the small spring.",
+      "Do check every change light and dark, with reduced transparency, at 1378×862 and at 375px.",
+      "Do keep the time the only large element on the timer screen.",
+      "Do honour prefers-reduced-motion; motion collapses to near-instant."
+    ],
+    "donts": [
+      "Don't bring back inphub's sheen, hover glow, gradient-filled buttons or logo, or glossy icon tiles (the v1.4.0 decision).",
+      "Don't give body, .app, .main or .view a background; it hides the wallpaper.",
+      "Don't hardcode a translucent background or a raw hex outside badge tints, cube stickers, white knobs and #fff in mixes.",
+      "Don't nest glass inside glass.",
+      "Don't animate the timer's colour changes.",
+      "Don't add perpetual motion; the wallpaper drift is the only thing that moves on its own, and it pauses while timing."
+    ]
+  }
+}

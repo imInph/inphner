@@ -164,7 +164,7 @@ async function fill(el: HTMLElement): Promise<void> {
     ...(multi ? [] : [
       ['mean', fmt(sum.mean)], ['σ', fmt(sum.sd)], ['best', fmt(sum.best)], ['worst', fmt(sum.worst)],
       ['best ao5', fmt(stats!.best(5)?.value ?? NaN)], ['best ao12', fmt(stats!.best(12)?.value ?? NaN)],
-      ['best ao100', fmt(stats!.best(100)?.value ?? NaN)],
+      ['best ao50', fmt(stats!.best(50)?.value ?? NaN)], ['best ao100', fmt(stats!.best(100)?.value ?? NaN)],
     ] as [string, string][]),
     ['DNF rate', sum.count ? `${((sum.dnfs / sum.count) * 100).toFixed(1)}%` : '–'],
     ['time cubing', moves ? '–' : hours ? `${hours} h ${mins} min` : `${mins} min`],

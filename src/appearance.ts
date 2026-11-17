@@ -27,7 +27,7 @@ export interface Appearance {
 
 export const DEFAULT_APPEARANCE: Appearance = {
   accent: 'green',
-  wallpaper: 'forest',
+  wallpaper: 'plain',
   transparency: 'full',
   logo: 'accent',
   url: '',
@@ -63,7 +63,7 @@ export function cssUrl(url: string): string {
   return `url("${url.replace(/[\\"'()\s]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'))}")`;
 }
 
-/** Light is the default (owner's call, with the forest wallpaper); only an explicit 'dark' is dark. */
+/** Light is the default (owner's call, with the plain wallpaper); only an explicit 'dark' is dark. */
 export function parseTheme(value: unknown): Theme {
   return value === 'dark' ? 'dark' : 'light';
 }

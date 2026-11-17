@@ -48,7 +48,7 @@ export const DEFAULT_PREFS: Prefs = {
   inspection: {},
   alerts: 'off',
   volume: 0.7,
-  strip: [5, 12, 100],
+  strip: [5, 12, 50, 100],
   dnfInMean: false,
   lastExportAt: 0,
   lastNudgeAt: 0,
@@ -93,9 +93,12 @@ export function parsePrefs(raw: string | null): Prefs {
       if (typeof v === 'boolean' && /^[a-z0-9_-]{1,32}$/i.test(k)) inspection[k] = v;
     }
   }
-  const strip = Array.isArray(o.strip)
+  let strip = Array.isArray(o.strip)
     ? [...new Set(o.strip.filter((n): n is number => [5, 12, 25, 50, 100, 200, 500, 1000].includes(n as number)))].sort((a, b) => a - b)
     : d.strip;
+  // [5, 12, 100] was the old default, and nothing in the UI could change it, so a saved copy of it
+  // is that default, not a choice: upgrade it so ao50 (whose PBs we announce) shows up too.
+  if (strip.join() === '5,12,100') strip = d.strip;
   return {
     holdMs: Math.round(num(o.holdMs, d.holdMs, 0, 1000)),
     precision: o.precision === 3 ? 3 : 2,

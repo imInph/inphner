@@ -13,7 +13,7 @@ test('parseAppearance: null, garbage and non-objects give the defaults', () => {
 
 test('parseAppearance: valid fields are kept, invalid ones fall back one by one', () => {
   const a = parseAppearance(JSON.stringify({ accent: 'teal', wallpaper: 'neon', transparency: 'reduced', logo: 'rainbow' }));
-  assert.deepEqual(a, { accent: 'teal', wallpaper: 'forest', transparency: 'reduced', logo: 'accent', url: '' });
+  assert.deepEqual(a, { accent: 'teal', wallpaper: 'plain', transparency: 'reduced', logo: 'accent', url: '' });
 });
 
 test('parseAppearance: reads inphub\'s stored shape (image as a CSS url())', () => {
