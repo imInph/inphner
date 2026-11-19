@@ -56,7 +56,7 @@ export function prefsCards(): string {
         <p class="pref-note"><span class="exp-mark" aria-hidden="true"></span>
           <span><strong>Experimental and untested.</strong> ${p.input === 'stackmat'
             ? 'The Stackmat decoder is built to the published 1200-baud packet format and has only ever been fed synthesised audio — it has never met a real timer. If it stays silent, the timer\'s signal may differ.'
-            : 'Smart cube support speaks GAN\'s Bluetooth protocol through gan-web-bluetooth, but no cube has been paired with it here. Chrome will ask for the cube\'s MAC address, which is printed in the GAN app.'}
+            : 'Smart cube support speaks GAN\'s Bluetooth protocol through gan-web-bluetooth, but no cube has been paired with it here. inphner reads the cube\'s MAC address when the browser allows it and asks for it otherwise.'}
 </span></p>` : ''}
         ${row('Phases', `<input type="number" min="1" max="10" step="1" value="${p.phases}" data-pref="phases" class="num-input" aria-label="Number of phases">`, 'More than 1 records a split on each press (e.g. 4: cross / F2L / OLL / PLL).')}
         ${switchRow('focusMode', 'Hide everything while timing', p.focusMode)}

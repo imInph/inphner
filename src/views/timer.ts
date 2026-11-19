@@ -21,7 +21,7 @@ import { inspectionAlert, unlockAudio } from '../timer/sounds.ts';
 import { connectStackmat, disconnectStackmat, stackmatState, type StackmatState } from '../timer/stackmat-source.ts';
 import { SolveGate, type StackmatPacket } from '../timer/stackmat.ts';
 import {
-  connectSmartCube, disconnectSmartCube, resetSmartCube, smartCubeSupported, smartDeviceName,
+  connectSmartCube, disconnectSmartCube, normalizeMac, preloadSmartCube, resetSmartCube, smartCubeSupported, smartDeviceName,
   smartState, type SmartMove, type SmartState,
 } from '../timer/smartcube.ts';
 import { PhaseTracker } from '../timer/phases.ts';
@@ -1048,6 +1048,7 @@ function paintSmartPill(state: SmartState, detail?: string): void {
   const name = smartDeviceName();
   const battery = smart.battery >= 0 ? ` · ${smart.battery}%` : '';
   pill.dataset.state = state;
+  pill.toggleAttribute('data-long', (detail?.length ?? 0) > 40);
   pill.innerHTML = `
     <span class="stackmat-dot" aria-hidden="true"></span>
     <span class="grow">${esc(detail ?? (state === 'connected' && name ? `${name}${battery}` : SMART_LABEL[state]))}</span>
@@ -1119,24 +1120,65 @@ const smartHandlers = {
   onBattery: (level: number) => { smart.battery = level; paintSmartPill(smartState()); },
 };
 
-/** Chrome on macOS won't give up the cube's MAC, and the key is derived from it. */
+/**
+ * Asked only when the library couldn't read the MAC from the cube's
+ * advertisements. The key is made from it, so a malformed one is refused here.
+ */
 function askForMac(deviceName: string): Promise<string | null> {
   return new Promise((resolve) => {
     let answered = false;
-    openModal({
+    const { root: m } = openModal({
       title: 'The cube\'s MAC address',
       confirmLabel: 'Connect',
       bodyHtml: `
-        <p>This browser won't tell inphner the Bluetooth address of <strong>${esc(deviceName)}</strong>,
-        and the cube's encryption key is made from it. You'll find it in the GAN app, or on the
-        sticker in the battery compartment. inphner remembers it for next time.</p>
-        <label><span>MAC address</span><input name="mac" placeholder="AB:CD:EF:12:34:56" autocomplete="off" spellcheck="false"></label>`,
-      onConfirm: (m) => {
+        <p>The browser didn't let inphner read the address of <strong>${esc(deviceName)}</strong>,
+        and the cube encrypts its data with a key made from it. Type it in and inphner will
+        remember it for this cube.</p>
+        <label><span>MAC address</span><input name="mac" placeholder="AB:CD:EF:12:34:56"
+          autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+        <p class="pref-note" data-mac-error hidden>That isn't a MAC address. It's six pairs of
+        letters and digits, like AB:CD:EF:12:34:56.</p>`,
+      onConfirm: (root) => {
+        const mac = normalizeMac(root.querySelector<HTMLInputElement>('[name="mac"]')!.value);
+        if (!mac) {
+          root.querySelector<HTMLElement>('[data-mac-error]')!.hidden = false;
+          return false;
+        }
         answered = true;
-        resolve(m.querySelector<HTMLInputElement>('[name="mac"]')!.value.trim() || null);
+        resolve(mac);
       },
       onClose: () => { if (!answered) resolve(null); },
     });
+    m.querySelector<HTMLInputElement>('[name="mac"]')!.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); m.querySelector<HTMLElement>('[data-act="confirm"]')!.click(); }
+    });
+  });
+}
+
+/**
+ * What csTimer says before it connects: what's needed, and how to let the
+ * browser read the MAC address so nobody has to type it. Connect is a click
+ * inside this dialog, which is the user gesture requestDevice() needs.
+ */
+function openSmartConnect(): void {
+  preloadSmartCube();
+  openModal({
+    title: 'Connect a smart cube',
+    confirmLabel: 'Connect',
+    bodyHtml: `
+      <p>Press Connect and pick your cube in the list the browser shows. Only GAN cubes work
+      for now.</p>
+      <p>If it fails, check that Bluetooth is on. The browser has to support Web Bluetooth:
+      Chrome or Edge on macOS, Windows, Linux or Android, or Bluefy on iPhone and iPad.</p>
+      <p>The cube encrypts its moves with a key made from its MAC address. inphner reads the
+      address by itself when the browser allows it:</p>
+      <ul>
+        <li>Chrome or Edge: turn on <span class="mono flag-url">chrome://flags/#enable-experimental-web-platform-features</span>
+          (paste it into the address bar), then restart the browser.</li>
+        <li>Bluefy: turn on Enable BLE Advertisements in its settings.</li>
+      </ul>
+      <p>Otherwise it asks you for the address once and remembers it for that cube.</p>`,
+    onConfirm: () => { void connectSmartCube(smartHandlers, askForMac); },
   });
 }
 
@@ -1149,7 +1191,7 @@ function mountSmart(): void {
 function onSmartClick(e: Event): void {
   const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-smart]');
   if (!btn) return;
-  if (btn.dataset.smart === 'connect') void connectSmartCube(smartHandlers, askForMac);
+  if (btn.dataset.smart === 'connect') openSmartConnect();
   else if (btn.dataset.smart === 'sync') {
     void resetSmartCube().then(() => toast('The cube now calls this state solved.', { kind: 'good' }));
   } else disconnectSmartCube();

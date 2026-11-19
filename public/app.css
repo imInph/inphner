@@ -1445,6 +1445,8 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
 .beat-dot.on.strong { background: var(--accent); }
 @keyframes beatPulse { from { transform: scale(1.7); background: var(--accent); } to { transform: scale(1); } }
 
+.flag-url { font-size: .86em; overflow-wrap: anywhere; }
+
 .memo-out { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
 .memo-letters { font-size: 1.05rem; letter-spacing: .06em; margin-top: 2px; }
 .scheme-editor { margin-top: 14px; }
@@ -1482,11 +1484,16 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
     display: flex; align-items: center; gap: 10px; margin-top: 16px;
     padding: 8px 8px 8px 14px; border-radius: var(--radius-pill);
     background: var(--fill-1); font-size: .85rem; color: var(--text-dim);
-    min-width: 280px; max-width: 420px;
+    min-width: min(280px, 100%); max-width: min(420px, 100%); flex-wrap: wrap;
 }
+.stackmat-pill > .grow { flex: 1 1 140px; min-width: 0; line-height: 1.35; }
+/* A sentence (an error that says what to do) doesn't fit a pill: square it off. */
+.stackmat-pill[data-long] { border-radius: var(--radius); }
 .stackmat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
 .stackmat-pill[data-state="waiting"] .stackmat-dot { background: var(--warn); }
 .stackmat-pill[data-state="live"] .stackmat-dot { background: var(--good); }
+.stackmat-pill[data-state="connecting"] .stackmat-dot { background: var(--warn); }
+.stackmat-pill[data-state="connected"] .stackmat-dot { background: var(--good); }
 .stackmat-pill[data-state="error"] .stackmat-dot { background: var(--bad); }
 .stackmat-pill[data-state="live"] { color: var(--text); }
 
