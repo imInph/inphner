@@ -133,10 +133,15 @@ function fitsTwoColumns(scrambles: string[], fontPt: number): boolean {
   return widest * 0.75 <= column * 1.85;
 }
 
+/** PLL/OLL attack and "No scramble" start from solved: nothing to generate. */
+function hasScramble(id: string): boolean {
+  return eventDef(id).scrambler.kind !== 'none';
+}
+
 /* ------------------------------------------------------------ the cards */
 
 function scrambleCard(): string {
-  const options = (group: 'wca' | 'other' | 'training') => EVENTS.filter((e) => e.group === group)
+  const options = (group: 'wca' | 'other' | 'training') => EVENTS.filter((e) => e.group === group && hasScramble(e.id))
     .map((e) => `<option value="${e.id}" ${e.id === state.event ? 'selected' : ''}>${esc(e.name)}</option>`).join('');
   return `
     <section class="card" style="--i:0">
@@ -479,6 +484,7 @@ export function renderTools(el: HTMLElement): void {
   loadMemoPrefs();
   loadSheetPrefs();
   if (!state.event) state.event = currentSession().event;
+  if (!hasScramble(state.event)) state.event = '333';
   paint();
 
   onAction(el, (action, t) => {
