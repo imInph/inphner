@@ -19,7 +19,8 @@ import { esc, onAction } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { toast } from '../ui/toast.ts';
 
-const COUNTS = [5, 12, 25, 50];
+const MAX_COUNT = 200;
+const SIZES = { min: 6, max: 32, standard: 11 };
 const HINT_ROWS: [HintKind, string, string][] = [
   ['cross', 'Cross', 'The optimal cross, at most 8 moves.'],
   ['xcross', 'XCross', 'The cross and one F2L pair together, whichever pair is cheapest.'],
@@ -32,6 +33,8 @@ const CORNER_BUFFERS: [string, number][] = [['UFR', 0], ['UBL', 6], ['ULF', 9], 
 interface ToolsState {
   event: string;
   count: number;
+  /** The printed sheet's font size, in points. */
+  fontPt: number;
   scrambles: string[];
   busy: boolean;
   hintScramble: string;
@@ -47,7 +50,7 @@ interface ToolsState {
 }
 
 const state: ToolsState = {
-  event: '333', count: 12, scrambles: [], busy: false,
+  event: '333', count: 12, fontPt: SIZES.standard, scrambles: [], busy: false,
   hintScramble: '', hints: {}, hintBusy: null, crossColour: 'U',
   bpm: 120, accent: 4,
   memoScramble: '', edgeBuffer: 0, cornerBuffer: 0, scheme: SPEFFZ,
@@ -84,6 +87,52 @@ function saveMemoPrefs(): void {
   } catch { /* private mode: it just won't be remembered */ }
 }
 
+const SHEET_KEY = 'inphner.scrambleSheet';
+
+function loadSheetPrefs(): void {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SHEET_KEY) ?? 'null') as { count?: number; fontPt?: number } | null;
+    if (!raw) return;
+    if (typeof raw.count === 'number') state.count = clampInt(raw.count, 1, MAX_COUNT, state.count);
+    if (typeof raw.fontPt === 'number') state.fontPt = clampInt(raw.fontPt, SIZES.min, SIZES.max, state.fontPt);
+  } catch { /* defaults it is */ }
+}
+
+function saveSheetPrefs(): void {
+  try {
+    localStorage.setItem(SHEET_KEY, JSON.stringify({ count: state.count, fontPt: state.fontPt }));
+  } catch { /* private mode: it just won't be remembered */ }
+}
+
+function clampInt(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/*
+ * Two columns only when every scramble line fits in half the page in at most
+ * two lines (one line only fits a 3x3 scramble at about 6pt). The page is taken as A4 (narrower than US Letter, so it holds for
+ * both) with the 12 mm margins set in the print stylesheet.
+ */
+const PT_PER_MM = 72 / 25.4;
+const PRINT_WIDTH_PT = (210 - 2 * 12) * PT_PER_MM;
+const COLUMN_GAP_PT = 24;
+let measureCtx: CanvasRenderingContext2D | null = null;
+
+function fitsTwoColumns(scrambles: string[], fontPt: number): boolean {
+  if (!scrambles.length) return false;
+  measureCtx ??= document.createElement('canvas').getContext('2d');
+  if (!measureCtx) return false;
+  const mono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim() || 'monospace';
+  measureCtx.font = `560 ${fontPt}pt ${mono}`;
+  // The number takes 3em at the start of each item (.ps-n in the print CSS).
+  const column = (PRINT_WIDTH_PT - COLUMN_GAP_PT) / 2 - 3 * fontPt;
+  // canvas measures in CSS px; 1pt = 4/3 px.
+  const widest = Math.max(...scrambles.flatMap((s) => s.split('\n')).map((line) => measureCtx!.measureText(line).width));
+  // 1.85, not 2: wrapping happens between moves, so a line never fills its width.
+  return widest * 0.75 <= column * 1.85;
+}
+
 /* ------------------------------------------------------------ the cards */
 
 function scrambleCard(): string {
@@ -97,9 +146,10 @@ function scrambleCard(): string {
         <label><span>Event</span><select data-field="event">
           <optgroup label="WCA">${options('wca')}</optgroup><optgroup label="Other puzzles">${options('other')}</optgroup><optgroup label="Training">${options('training')}</optgroup>
         </select></label>
-        <label style="flex:0 1 120px"><span>How many</span><select data-field="count">
-          ${COUNTS.map((n) => `<option value="${n}" ${n === state.count ? 'selected' : ''}>${n}</option>`).join('')}
-        </select></label>
+        <label style="flex:0 1 100px"><span>How many</span><input type="number" inputmode="numeric"
+          data-field="count" min="1" max="${MAX_COUNT}" step="1" value="${state.count}"></label>
+        <label style="flex:0 1 100px"><span>Print size (pt)</span><input type="number" inputmode="numeric"
+          data-field="fontPt" min="${SIZES.min}" max="${SIZES.max}" step="1" value="${state.fontPt}"></label>
         <button class="btn btn-primary" data-action="generate" style="align-self:flex-end" ${state.busy ? 'disabled' : ''}>
           ${state.busy ? 'Generating…' : 'Generate'}</button>
       </div>
@@ -108,7 +158,8 @@ function scrambleCard(): string {
           <button type="button" class="btn btn-sm" data-action="copy-scrambles">${icon('copy', 16)} Copy all</button>
           <button type="button" class="btn btn-sm" data-action="print-scrambles">Print</button>
           <span class="grow"></span>
-          <small class="text-dim">${state.scrambles.length} × ${esc(eventDef(state.event).name)}</small>
+          <small class="text-dim">${state.scrambles.length} × ${esc(eventDef(state.event).name)} · prints in ${
+            fitsTwoColumns(state.scrambles, state.fontPt) ? 'two columns' : 'one column'}</small>
         </div>
         <ol class="scramble-sheet mono" id="scramble-sheet">
           ${state.scrambles.map((s) => `<li>${esc(s)}</li>`).join('')}
@@ -316,6 +367,35 @@ function paintHints(): void {
 
 /* --------------------------------------------------------------- actions */
 
+/**
+ * Builds the sheet as its own element on <body> and prints that alone. Two
+ * columns read left to right (1 | 2, 3 | 4). It is removed on `afterprint`, not
+ * after window.print() returns: Safari returns before it has laid the page out.
+ */
+function printScrambles(): void {
+  document.querySelector('.print-sheet')?.remove();
+  const perRow = fitsTwoColumns(state.scrambles, state.fontPt) ? 2 : 1;
+  const item = (s: string, i: number) =>
+    `<div class="ps-item"><span class="ps-n">${i + 1}.</span><span class="ps-s">${esc(s)}</span></div>`;
+  const rows: string[] = [];
+  for (let i = 0; i < state.scrambles.length; i += perRow) {
+    const pair = state.scrambles.slice(i, i + perRow).map((s, j) => item(s, i + j));
+    if (pair.length < perRow) pair.push('<div class="ps-item"></div>');
+    rows.push(`<div class="ps-row">${pair.join('')}</div>`);
+  }
+  const sheet = document.createElement('div');
+  sheet.className = 'print-sheet mono';
+  sheet.style.setProperty('--print-size', `${state.fontPt}pt`);
+  sheet.innerHTML = `<h1>${state.scrambles.length} × ${esc(eventDef(state.event).name)}</h1>${rows.join('')}`;
+  document.body.append(sheet);
+
+  const root = document.documentElement;
+  root.setAttribute('data-print', 'scrambles');
+  const done = () => { root.removeAttribute('data-print'); sheet.remove(); };
+  window.addEventListener('afterprint', done, { once: true });
+  window.print();
+}
+
 async function generate(): Promise<void> {
   state.busy = true;
   paint();
@@ -397,6 +477,7 @@ function toggleMetronome(): void {
 export function renderTools(el: HTMLElement): void {
   host = el;
   loadMemoPrefs();
+  loadSheetPrefs();
   if (!state.event) state.event = currentSession().event;
   paint();
 
@@ -406,9 +487,7 @@ export function renderTools(el: HTMLElement): void {
       void navigator.clipboard.writeText(state.scrambles.map((s, i) => `${i + 1}. ${s}`).join('\n'))
         .then(() => toast('Scrambles copied.', { kind: 'good' }), () => toast('The clipboard said no.', { kind: 'bad' }));
     } else if (action === 'print-scrambles') {
-      document.documentElement.setAttribute('data-print', 'scrambles');
-      window.print();
-      document.documentElement.removeAttribute('data-print');
+      printScrambles();
     } else if (action === 'hint') askHint(t.dataset.kind as HintKind);
     else if (action === 'hint-last' || action === 'hint-current') {
       const s = action === 'hint-last' ? lastScramble() : currentScramble();
@@ -477,7 +556,15 @@ export function renderTools(el: HTMLElement): void {
       return;
     }
     if (field === 'event') { state.event = t.value; state.scrambles = []; paint(); }
-    else if (field === 'count') { state.count = Number(t.value); }
+    else if (field === 'count') {
+      state.count = clampInt(Number(t.value), 1, MAX_COUNT, state.count);
+      t.value = String(state.count);
+      saveSheetPrefs();
+    } else if (field === 'fontPt') {
+      state.fontPt = clampInt(Number(t.value), SIZES.min, SIZES.max, state.fontPt);
+      saveSheetPrefs();
+      paint();
+    }
     else if (field === 'accent') { state.accent = Number(t.value); if (metronomeRunning()) { stopMetronome(); toggleMetronome(); } }
     else if (field === 'edgeBuffer' || field === 'cornerBuffer') {
       state[field] = Number(t.value);

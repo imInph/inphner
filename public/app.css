@@ -1420,7 +1420,7 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
 
 .scramble-sheet {
     margin: 12px 0 0; padding: 0 0 0 34px; display: flex; flex-direction: column; gap: 6px;
-    font-size: .84rem; line-height: 1.45; max-height: 420px; overflow-y: auto;
+    font-size: .84rem; line-height: 1.45; max-height: 420px; overflow-y: auto; white-space: pre-line;
 }
 .scramble-sheet li { padding-left: 4px; color: var(--text); }
 .scramble-sheet li::marker { color: var(--text-faint); font-variant-numeric: tabular-nums; }
@@ -1452,28 +1452,22 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
 .scheme-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
 .scheme-grid input { padding: 5px 0; text-align: center; font-family: var(--font-rounded); font-size: .8rem; }
 
-/* The printed scramble sheet: plain black on white, nothing else on the page. */
+/* The printed scramble sheet. Printing builds a separate .print-sheet on <body>
+   (views/tools.ts) and hides everything else, so the page's grid and glass never
+   reach the paper. Rows are plain blocks, not CSS columns or a grid: those don't
+   break across pages reliably in Safari. The 12 mm margin and the 3em number are
+   what fitsTwoColumns() assumes. */
+@page { margin: 12mm; }
+.print-sheet { display: none; }
 @media print {
     html[data-print="scrambles"] { background: #fff !important; }
-    html[data-print="scrambles"] .wallpaper,
-    html[data-print="scrambles"] .sidebar,
-    html[data-print="scrambles"] .topbar,
-    html[data-print="scrambles"] .toasts,
-    html[data-print="scrambles"] .nav-backdrop,
-    html[data-print="scrambles"] .card:not(:has(.scramble-sheet)),
-    html[data-print="scrambles"] .tool-actions,
-    html[data-print="scrambles"] .field-row { display: none !important; }
-    html[data-print="scrambles"] .card:has(.scramble-sheet) {
-        background: #fff !important; box-shadow: none !important; border: none !important;
-        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-        padding: 0 !important;
-    }
-    html[data-print="scrambles"] .card-head { color: #000; border: none; }
-    html[data-print="scrambles"] .scramble-sheet {
-        max-height: none; overflow: visible; color: #000; font-size: 11pt; gap: 10px;
-    }
-    html[data-print="scrambles"] .scramble-sheet li { break-inside: avoid; color: #000; }
-    html[data-print="scrambles"] * { color: #000 !important; text-shadow: none !important; }
+    html[data-print="scrambles"] body > :not(.print-sheet) { display: none !important; }
+    html[data-print="scrambles"] .print-sheet { display: block; color: #000; font-size: var(--print-size, 11pt); }
+    .print-sheet h1 { font-size: 1.1em; font-weight: 650; margin: 0 0 1em; font-family: var(--font-sans, inherit); }
+    .ps-row { display: flex; gap: 24pt; break-inside: avoid; page-break-inside: avoid; margin-bottom: .7em; }
+    .ps-item { display: flex; flex: 1 1 0; min-width: 0; line-height: 1.4; }
+    .ps-n { flex: 0 0 3em; text-align: right; padding-right: .6em; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+    .ps-s { flex: 1 1 auto; min-width: 0; white-space: pre-line; overflow-wrap: anywhere; }
 }
 
 @media (max-width: 768px) {
