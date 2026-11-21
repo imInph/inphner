@@ -66,6 +66,8 @@ export function mountScramble(el: HTMLElement, eventId: string): void {
   delegate(el, (action, t) => { void onAction(action, t); });
   if (!wiredHosts.has(el)) {
     wiredHosts.add(el);
+    el.addEventListener('pointerdown', onGripDown);
+    el.addEventListener('dblclick', onGripReset);
     // The preview is a div role=button (<twisty-player> won't render inside a real <button>).
     el.addEventListener('keydown', (e) => {
       const t = e.target as HTMLElement;
@@ -156,6 +158,133 @@ function goPrev(): void {
   }
 }
 
+/* ------------------------------------------------------------- sizing */
+
+/*
+ * The scramble box and the preview can be resized: a grip in the box's corner
+ * scales the scramble text, and the divider between the box and the preview
+ * sets the preview's width. Double-click either to go back to the default.
+ * Kept per browser, apart from prefs: it's a matter of screen, not of solving.
+ */
+const SIZE_KEY = 'inphner.scrambleSize';
+const TEXT_SCALE = { min: 0.7, max: 1.8 };
+const PREVIEW_W = { min: 150, max: 460 };
+
+let sizes: { text?: number; preview?: number } = (() => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SIZE_KEY) ?? '{}') as Record<string, unknown>;
+    const ok = (v: unknown, r: { min: number; max: number }) =>
+      (typeof v === 'number' && v >= r.min && v <= r.max ? v : undefined);
+    return { text: ok(raw.text, TEXT_SCALE), preview: ok(raw.preview, PREVIEW_W) };
+  } catch { return {}; }
+})();
+
+function saveSizes(): void {
+  try { localStorage.setItem(SIZE_KEY, JSON.stringify(sizes)); } catch { /* not remembered */ }
+}
+
+/*
+ * The dock: a tool window dropped between the scramble and the preview gets a
+ * real column in this row (views/tools.ts sets its width), so the scramble
+ * narrows instead of disappearing under it. 0 = no dock.
+ */
+let dockW = 0;
+let dockH = 0;
+
+/** The dock's size: the row opens a column this wide and grows to this height. */
+export function setDock(width: number, height: number): void {
+  const w = Math.max(0, Math.round(width));
+  const h = w ? Math.max(0, Math.round(height)) : 0;
+  if (w === dockW && h === dockH) return;
+  dockW = w;
+  dockH = h;
+  const wrap = host?.querySelector<HTMLElement>('.scramble-wrap');
+  if (wrap) {
+    wrap.classList.toggle('has-dock', dockW > 0);
+    if (dockW) {
+      wrap.style.setProperty('--dock-w', `${dockW}px`);
+      wrap.style.setProperty('--dock-h', `${dockH}px`);
+    } else {
+      wrap.style.removeProperty('--dock-w');
+      wrap.style.removeProperty('--dock-h');
+    }
+    fitText();
+  }
+  announceLayout();
+}
+
+/** Floating tool windows stuck to this card follow it (views/tools.ts listens). */
+function announceLayout(): void {
+  window.dispatchEvent(new Event('inphner:layout'));
+}
+
+function sizeStyle(): string {
+  const parts: string[] = [];
+  if (dockW) parts.push(`--dock-w:${dockW}px;--dock-h:${dockH}px`);
+  if (sizes.text) parts.push(`--scr-scale:${sizes.text}`);
+  if (sizes.preview) parts.push(`--preview-w:${sizes.preview}px`);
+  return parts.length ? ` style="${parts.join(';')}"` : '';
+}
+
+function applySizes(): void {
+  const wrap = host?.querySelector<HTMLElement>('.scramble-wrap');
+  if (!wrap) return;
+  wrap.style.setProperty('--scr-scale', sizes.text ? String(sizes.text) : '');
+  wrap.style.setProperty('--preview-w', sizes.preview ? `${sizes.preview}px` : '');
+  if (!sizes.text) wrap.style.removeProperty('--scr-scale');
+  if (!sizes.preview) wrap.style.removeProperty('--preview-w');
+  fitText();
+  announceLayout();
+}
+
+const clampTo = (v: number, r: { min: number; max: number }) => Math.min(r.max, Math.max(r.min, v));
+
+function onGripDown(e: PointerEvent): void {
+  const grip = (e.target as HTMLElement).closest<HTMLElement>('[data-grip]');
+  if (!grip || e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const kind = grip.dataset.grip;
+  const wrap = grip.closest<HTMLElement>('.scramble-wrap')!;
+  const sx = e.clientX;
+  const sy = e.clientY;
+  const text0 = sizes.text ?? 1;
+  const preview0 = wrap.querySelector<HTMLElement>('.preview-card')?.offsetWidth ?? 232;
+  // The preview never takes more than half the row.
+  const maxPreview = Math.min(PREVIEW_W.max, wrap.offsetWidth / 2);
+  grip.setPointerCapture(e.pointerId);
+  wrap.classList.add('is-sizing');
+  const move = (m: PointerEvent): void => {
+    if (kind === 'text') {
+      // Down or right makes it bigger: 300px of travel is a doubling.
+      const d = (m.clientX - sx + m.clientY - sy) / 300;
+      sizes.text = Math.round(clampTo(text0 * (1 + d), TEXT_SCALE) * 100) / 100;
+    } else {
+      sizes.preview = Math.round(Math.min(maxPreview, clampTo(preview0 - (m.clientX - sx), PREVIEW_W)));
+    }
+    applySizes();
+  };
+  const up = (): void => {
+    grip.removeEventListener('pointermove', move);
+    grip.removeEventListener('pointerup', up);
+    grip.removeEventListener('pointercancel', up);
+    wrap.classList.remove('is-sizing');
+    saveSizes();
+  };
+  grip.addEventListener('pointermove', move);
+  grip.addEventListener('pointerup', up);
+  grip.addEventListener('pointercancel', up);
+}
+
+function onGripReset(e: MouseEvent): void {
+  const grip = (e.target as HTMLElement).closest<HTMLElement>('[data-grip]');
+  if (!grip) return;
+  if (grip.dataset.grip === 'text') delete sizes.text;
+  else delete sizes.preview;
+  saveSizes();
+  applySizes();
+}
+
 /* ------------------------------------------------------------------ render */
 
 function sizeClass(): string {
@@ -200,7 +329,7 @@ function render(): void {
       : '';
 
   host.innerHTML = `
-    <div class="scramble-wrap ${previewOpen ? 'preview-open' : ''} ${noPreview ? 'no-preview' : ''}">
+    <div class="scramble-wrap ${previewOpen ? 'preview-open' : ''} ${noPreview ? 'no-preview' : ''} ${dockW ? 'has-dock' : ''}"${sizeStyle()}>
       <section class="card scramble-card" aria-label="Scramble">
         ${body}
         ${practiceRow()}
@@ -216,14 +345,18 @@ function render(): void {
           ${btn('lock', s.locked ? 'lock' : 'unlock', s.locked ? 'Unlock: new scramble after each solve' : 'Lock: reuse this scramble', false, s.locked)}
           ${event === '333mbf' ? '' : btn('toggle-preview', 'cube3d', previewOpen ? 'Hide preview' : 'Show preview', false, previewOpen)}
         </div>`}
+        ${scramble && !none ? '<div class="scr-grip scr-grip-text" data-grip="text" data-no-timer title="Drag to resize the scramble, double-click to reset" aria-hidden="true"></div>' : ''}
       </section>
+      <div class="dock-slot" aria-hidden="true"></div>
       ${noPreview ? '' : `
+      <div class="scr-grip scr-grip-preview" data-grip="preview" data-no-timer title="Drag to resize the preview, double-click to reset" aria-hidden="true"></div>
       <div class="card preview-card" role="button" tabindex="0" data-action="3d" title="${preview3d ? 'Show the 2D net' : 'Show in 3D'}" aria-label="${preview3d ? 'Scramble preview, 3D. Click for 2D' : 'Scramble preview. Click for 3D'}">
         ${scramble ? previewHtml(scramble, n) : '<div class="preview-empty"></div>'}
       </div>`}
     </div>`;
 
   fitText();
+  announceLayout();
   if (scramble !== lastAnnounced) {
     lastAnnounced = scramble;
     window.dispatchEvent(new Event('inphner:scramble'));

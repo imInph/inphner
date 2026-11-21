@@ -18,7 +18,7 @@ import { showShortcuts } from './views/shortcuts.ts';
 import { leaveSettings, renderSettings } from './views/settings.ts';
 import { renderSessions } from './views/sessions.ts';
 import { renderStats } from './views/stats.ts';
-import { leaveTools, renderTools } from './views/tools.ts';
+import { initToolPopouts, leaveTools, renderTools } from './views/tools.ts';
 import { leaveTrainer, renderTrainer, trainerBusy } from './views/trainer.ts';
 import { renderAlgorithms } from './views/algorithms.ts';
 import { initTimer, leaveTimer, renderTimer, timerBusy } from './views/timer.ts';
@@ -248,6 +248,7 @@ async function boot(): Promise<void> {
   renderSessionPill();
   warm(currentSession().event);
   window.addEventListener('inphner:sessions', renderSessionPill);
+  initToolPopouts();
 
   const initial = parseRoute();
   if (!viewMeta(initial.view)) location.replace('#' + DEFAULT_VIEW);

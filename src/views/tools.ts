@@ -12,10 +12,13 @@ import { cubeFromScramble } from '../tools/cube.ts';
 import { memoFor, pairs, SPEFFZ, type Scheme } from '../tools/memo.ts';
 import { COLOUR_HEX, COLOUR_NAMES, describeOrientation, FACE_ORDER, orientations } from '../tools/orient.ts';
 import { netSvg } from '../scramble/net.ts';
+import { currentScramble as timerScramble } from './scramble-card.ts';
 import type { Face } from '../scramble/nxn.ts';
 import { metronomeRunning, setMetronomeBpm, startMetronome, stopMetronome, tapTempo } from '../tools/metronome.ts';
 import type { HintKind, HintOption, HintReply } from '../tools/solver-worker.ts';
 import { esc, onAction } from '../ui/dom.ts';
+import { attachSide, clampOffset, components, edgesFor, findAttach, offsetFrom, positionFrom, reflow, snapOffset, touching, type Edges, type Rect } from '../ui/snap.ts';
+import { setDock } from './scramble-card.ts';
 import { icon } from '../ui/icons.ts';
 import { toast } from '../ui/toast.ts';
 
@@ -146,7 +149,7 @@ function scrambleCard(): string {
   return `
     <section class="card" style="--i:0">
       <div class="card-head"><span class="badge-ico tint-green">${icon('cube', 16)}</span><h3>Scramble generator</h3>
-        <small class="text-dim">Official random-state scrambles</small></div>
+        <small class="text-dim">Official random-state scrambles</small>${headButtons('scramble')}</div>
       <div class="field-row">
         <label><span>Event</span><select data-field="event">
           <optgroup label="WCA">${options('wca')}</optgroup><optgroup label="Other puzzles">${options('other')}</optgroup><optgroup label="Training">${options('training')}</optgroup>
@@ -240,7 +243,7 @@ function hintCard(): string {
   return `
     <section class="card" style="--i:1">
       <div class="card-head"><span class="badge-ico tint-green">${icon('target', 16)}</span><h3>Solver hints</h3>
-        <small class="text-dim">Look after the solve, not before</small></div>
+        <small class="text-dim">Look after the solve, not before</small>${headButtons('hints')}</div>
       <label><span>Scramble</span><textarea class="mono scramble-field" data-field="hintScramble" rows="2"
         placeholder="R U R' U' …" spellcheck="false" autocomplete="off">${esc(state.hintScramble)}</textarea></label>
       <div class="tool-actions" style="margin-top:8px">
@@ -261,7 +264,7 @@ function metronomeCard(): string {
   return `
     <section class="card" style="--i:2">
       <div class="card-head"><span class="badge-ico tint-green">${icon('clock', 16)}</span><h3>Metronome</h3>
-        <small class="text-dim">For turn speed practice</small></div>
+        <small class="text-dim">For turn speed practice</small>${headButtons('metronome')}</div>
       <div class="metronome">
         <div class="bpm num" id="bpm-readout">${state.bpm}<small> BPM</small></div>
         <div class="range-field">
@@ -309,7 +312,7 @@ function memoCard(): string {
   return `
     <section class="card" style="--i:3">
       <div class="card-head"><span class="badge-ico tint-green">${icon('book', 16)}</span><h3>BLD memo helper</h3>
-        <small class="text-dim">Speffz by default</small></div>
+        <small class="text-dim">Speffz by default</small>${headButtons('memo')}</div>
       <label><span>Scramble</span><textarea class="mono scramble-field" data-field="memoScramble" rows="2"
         placeholder="R U R' U' …" spellcheck="false" autocomplete="off">${esc(state.memoScramble)}</textarea></label>
       <div class="field-row" style="margin-top:10px">
@@ -347,22 +350,554 @@ function fitField(el: HTMLTextAreaElement): void {
 }
 
 function fitScrambleFields(): void {
-  host?.querySelectorAll<HTMLTextAreaElement>('.scramble-field').forEach(fitField);
+  for (const root of [host, layer]) root?.querySelectorAll<HTMLTextAreaElement>('.scramble-field').forEach(fitField);
 }
 
+/** Each card lives in exactly one place: the Tools grid, or its floating window. */
 function paint(): void {
-  if (!host) return;
-  host.innerHTML = `<div class="grid stagger tools-grid">
-    ${scrambleCard()}${hintCard()}${metronomeCard()}${memoCard()}
-  </div>`;
+  if (host) {
+    host.innerHTML = `<div class="grid stagger tools-grid">
+      ${TOOL_IDS.map((id) => (popped[id] ? awayCard(id) : CARDS[id]())).join('')}
+    </div>`;
+  }
+  paintFloats();
   fitScrambleFields();
 }
 
 /** Repaint one region, so typing doesn't tear the field out from under the cursor. */
 function repaint(selector: string, html: string): void {
-  const el = host?.querySelector(selector);
+  const el = host?.querySelector(selector) ?? layer?.querySelector(selector);
   if (!el) return;
   el.outerHTML = html;
+}
+
+/* ------------------------------------------------------------- pop-outs */
+
+/*
+ * Any tool card can pop out of the grid into a floating window that stays on
+ * screen on every page (the metronome keeps ticking on the Timer). The windows
+ * live in one layer on <body>, outside the views, so switching pages never
+ * re-renders them. They move by their header, resize from the corner, snap to
+ * the screen and to each other, and windows dropped against each other stick:
+ * they move as one until one is detached (its button, or Shift-drag). They
+ * fade with the chrome while a solve runs. All of it survives a reload.
+ * The geometry is ui/snap.ts (pure, tested).
+ */
+type ToolId = 'scramble' | 'hints' | 'metronome' | 'memo';
+/** The Timer's cards a window can stick to; 'slot' is the dock between the two. */
+type AnchorId = 'scramble' | 'preview' | 'slot';
+interface Anchor extends Edges { to: AnchorId; dx: number; dy: number }
+interface Float { x: number; y: number; w?: number; h?: number; folded?: boolean; anchor?: Anchor }
+
+const TOOL_IDS: ToolId[] = ['scramble', 'hints', 'metronome', 'memo'];
+const TOOL_NAMES: Record<ToolId, string> = {
+  scramble: 'Scramble generator', hints: 'Solver hints', metronome: 'Metronome', memo: 'BLD memo helper',
+};
+const TOOL_ICONS: Record<ToolId, Parameters<typeof icon>[0]> = {
+  scramble: 'cube', hints: 'target', metronome: 'clock', memo: 'book',
+};
+const CARDS: Record<ToolId, () => string> = {
+  scramble: () => scrambleCard(), hints: () => hintCard(), metronome: () => metronomeCard(), memo: () => memoCard(),
+};
+const POP_KEY = 'inphner.popped';
+const EDGE = 8;
+/** How much of a window must stay above the bottom of the screen: its header. */
+const KEEP = 64;
+const MIN_W = 260;
+const MIN_H = 120;
+const DOCK_MAX = 520;
+
+let popped: Partial<Record<ToolId, Float>> = {};
+/** Pairs of windows stuck together. Groups are whatever these join up. */
+let links: [ToolId, ToolId][] = [];
+let layer: HTMLElement | null = null;
+let onToolsView = false;
+let front = 0;
+
+const isLinked = (id: ToolId): boolean => links.some((l) => l.includes(id)) || !!popped[id]?.anchor;
+
+function headButtons(id: ToolId): string {
+  const name = esc(TOOL_NAMES[id]);
+  if (!popped[id]) {
+    return `<button type="button" class="card-open tool-pop" data-action="pop" data-tool="${id}"
+      title="Pop out" aria-label="Pop ${name} out">${icon('popout', 16)}</button>`;
+  }
+  const folded = popped[id]!.folded;
+  return `<span class="tool-float-btns">
+    ${isLinked(id) ? `<button type="button" class="card-open" data-action="pop-detach" data-tool="${id}"
+      title="Detach (or Shift-drag)" aria-label="Detach ${name} from the windows it is stuck to">${icon('unlink', 16)}</button>` : ''}
+    <button type="button" class="card-open" data-action="pop-fold" data-tool="${id}" aria-expanded="${!folded}"
+      title="${folded ? 'Unfold' : 'Fold'}" aria-label="${folded ? 'Unfold' : 'Fold'} ${name}">${icon(folded ? 'down' : 'minus', 16)}</button>
+    <button type="button" class="card-open" data-action="pop-in" data-tool="${id}"
+      title="Put back on the Tools page" aria-label="Put ${name} back on the Tools page">${icon('popin', 16)}</button>
+  </span>`;
+}
+
+/** What stays in the grid while a tool is out. */
+function awayCard(id: ToolId): string {
+  return `
+    <section class="card tool-away">
+      <div class="card-head"><span class="badge-ico tint-green">${icon(TOOL_ICONS[id], 16)}</span><h3>${esc(TOOL_NAMES[id])}</h3></div>
+      <p class="text-dim">Popped out. It stays on screen on every page until you put it back.</p>
+      <button type="button" class="btn btn-sm" data-action="pop-in" data-tool="${id}">${icon('popin', 16)} Put it back</button>
+    </section>`;
+}
+
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+
+function parseAnchor(a: unknown): Anchor | undefined {
+  const o = a as Partial<Anchor> | undefined;
+  if (!o || !['scramble', 'preview', 'slot'].includes(o.to as string)) return undefined;
+  const dx = num(o.dx);
+  const dy = num(o.dy);
+  if (dx === undefined || dy === undefined) return undefined;
+  return { to: o.to as AnchorId, dx, dy, ax: o.ax === 'r' ? 'r' : 'l', ay: o.ay === 'b' ? 'b' : 't' };
+}
+
+function loadPopped(): void {
+  popped = {};
+  links = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(POP_KEY) ?? '{}') as { windows?: Record<string, Float>; links?: unknown };
+    // v1 stored the windows at the top level, with no links.
+    const windows = (raw.windows ?? raw) as Record<string, Float>;
+    for (const id of TOOL_IDS) {
+      const f = windows[id];
+      const x = num(f?.x);
+      const y = num(f?.y);
+      if (x === undefined || y === undefined) continue;
+      popped[id] = { x, y, w: num(f!.w), h: num(f!.h), folded: !!f!.folded, anchor: parseAnchor(f!.anchor) };
+    }
+    if (Array.isArray(raw.links)) {
+      for (const l of raw.links) {
+        if (Array.isArray(l) && popped[l[0] as ToolId] && popped[l[1] as ToolId] && l[0] !== l[1]) {
+          links.push([l[0] as ToolId, l[1] as ToolId]);
+        }
+      }
+    }
+  } catch { popped = {}; links = []; }
+}
+
+function savePopped(): void {
+  try { localStorage.setItem(POP_KEY, JSON.stringify({ windows: popped, links })); } catch { /* private mode: not remembered */ }
+  syncDock();
+}
+
+/* --- sticking to the Timer's cards --- */
+
+const ANCHOR_SEL: Record<AnchorId, string> = {
+  scramble: '#view-timer .scramble-card', preview: '#view-timer .preview-card', slot: '#view-timer .dock-slot',
+};
+
+/** Where a Timer card is on screen, or null when it isn't showing (another page, a phone layout). */
+function anchorRect(to: AnchorId): Rect | null {
+  const el = document.querySelector<HTMLElement>(ANCHOR_SEL[to]);
+  if (!el || !el.getClientRects().length) return null;
+  const b = el.getBoundingClientRect();
+  return b.width ? { x: b.left, y: b.top, w: b.width, h: b.height } : null;
+}
+
+/** The dock is as wide and as tall as the windows in it. */
+function syncDock(): void {
+  // The dock's windows start at its top-left corner, wherever they were let go:
+  // a window dropped a little low must not sit lower than the cards beside it.
+  const inDock = openIds().filter((id) => popped[id]!.anchor?.to === 'slot');
+  if (inDock.length) {
+    const minX = Math.min(...inDock.map((id) => popped[id]!.anchor!.dx));
+    const minY = Math.min(...inDock.map((id) => popped[id]!.anchor!.dy));
+    if (minX || minY) {
+      for (const id of inDock) { popped[id]!.anchor!.dx -= minX; popped[id]!.anchor!.dy -= minY; }
+      scheduleLayout();
+    }
+  }
+  const docked = inDock.map(rectOf).filter((r) => r.w);
+  if (!docked.length) { setDock(0, 0); return; }
+  const span = (lo: number[], hi: number[]) => Math.max(...hi) - Math.min(...lo);
+  // The row grows to fit, but never by more than 45% of the screen: a tall
+  // stack in the dock must not push the timer itself out of sight.
+  // Never wider than DOCK_MAX: the scramble beside it must stay readable.
+  setDock(Math.min(DOCK_MAX, span(docked.map((r) => r.x), docked.map((r) => r.x + r.w))),
+    Math.min(span(docked.map((r) => r.y), docked.map((r) => r.y + r.h)), innerHeight * 0.45));
+}
+
+/** Windows stuck to a Timer card go where the card is now. */
+function layoutAnchored(): void {
+  for (const id of openIds()) {
+    const f = popped[id]!;
+    const r = f.anchor && anchorRect(f.anchor.to);
+    // Stuck to a card on screen, it's part of the page: no floating shadow.
+    elOf(id)?.classList.toggle('anchored', !!r);
+    if (!r) continue;
+    const p = positionFrom(r, f.anchor!, f.anchor!);
+    f.x = Math.round(p.x);
+    f.y = Math.round(p.y);
+    place(id);
+  }
+}
+
+/** After a window stuck to a card moved for another reason, measure its offset again. */
+function rebase(id: ToolId): void {
+  const f = popped[id];
+  const r = f?.anchor && anchorRect(f.anchor.to);
+  if (!r) return;
+  Object.assign(f!.anchor!, offsetFrom(r, f!, f!.anchor!));
+}
+
+let layoutQueued = false;
+function scheduleLayout(): void {
+  if (layoutQueued) return;
+  layoutQueued = true;
+  requestAnimationFrame(() => {
+    layoutQueued = false;
+    layoutAnchored();
+    // The Timer page slides in as it opens (viewIn): measured mid-slide, a stuck
+    // window lands a few px off. Measure again once the slide has finished.
+    const sliding = document.getElementById('view-timer')?.getAnimations().filter((a) => a.playState === 'running') ?? [];
+    if (sliding.length) void Promise.allSettled(sliding.map((a) => a.finished)).then(scheduleLayout);
+  });
+}
+
+/**
+ * A group dropped against the Timer's scramble or preview sticks to it. Against
+ * the inner edge of either, the side facing the other card, it goes into the
+ * dock between them, which then opens up to its width.
+ */
+function stickToCards(ids: ToolId[]): void {
+  const cards = (['scramble', 'preview'] as const)
+    .map((to) => [to, anchorRect(to)] as const).filter((c): c is readonly ['scramble' | 'preview', Rect] => !!c[1]);
+  // Touching both cards (under the scramble's end and the preview, say): the
+  // one it shares the longer edge with wins.
+  let hit: { to: 'scramble' | 'preview'; side: ReturnType<typeof attachSide> & {}; shared: number } | null = null;
+  for (const i of ids) {
+    const w = rectOf(i);
+    for (const [to, r] of cards) {
+      const side = attachSide(w, r);
+      if (!side) continue;
+      const shared = side === 'left' || side === 'right'
+        ? Math.min(w.y + w.h, r.y + r.h) - Math.max(w.y, r.y)
+        : Math.min(w.x + w.w, r.x + r.w) - Math.max(w.x, r.x);
+      if (!hit || shared > hit.shared) hit = { to, side, shared };
+    }
+  }
+  if (!hit) { ids.forEach((i) => delete popped[i]!.anchor); return; }
+  const between = (hit.to === 'preview' && hit.side === 'left') || (hit.to === 'scramble' && hit.side === 'right');
+  if (between && innerWidth > 768) {
+    const left = Math.min(...ids.map((i) => popped[i]!.x));
+    const top = Math.min(...ids.map((i) => popped[i]!.y));
+    for (const i of ids) popped[i]!.anchor = { to: 'slot', ax: 'l', ay: 't', dx: popped[i]!.x - left, dy: popped[i]!.y - top };
+    return;
+  }
+  const r = anchorRect(hit.to)!;
+  const edges = edgesFor(hit.side);
+  for (const i of ids) popped[i]!.anchor = { to: hit.to, ...edges, ...offsetFrom(r, popped[i]!, edges) };
+}
+
+const openIds = (): ToolId[] => TOOL_IDS.filter((id) => popped[id]);
+const elOf = (id: ToolId): HTMLElement | null => layer?.querySelector<HTMLElement>(`.tool-float[data-tool="${id}"]`) ?? null;
+
+function rectOf(id: ToolId): Rect {
+  const f = popped[id]!;
+  const el = elOf(id);
+  return { x: f.x, y: f.y, w: el?.offsetWidth ?? 0, h: el?.offsetHeight ?? 0 };
+}
+
+function groups(): ToolId[][] {
+  const ids = openIds();
+  const pairs = links.map(([a, b]) => [ids.indexOf(a), ids.indexOf(b)] as [number, number])
+    .filter(([a, b]) => a >= 0 && b >= 0);
+  return components(ids.length, pairs).map((g) => g.map((i) => ids[i]!));
+}
+
+const groupOf = (id: ToolId): ToolId[] => groups().find((g) => g.includes(id)) ?? [id];
+
+function unlink(id: ToolId): void {
+  links = links.filter((l) => !l.includes(id));
+  if (popped[id]) delete popped[id]!.anchor;
+}
+
+/** Put a window where its Float says. Whatever doesn't fit scrolls inside it. */
+function place(id: ToolId): void {
+  const f = popped[id];
+  const el = elOf(id);
+  if (!f || !el) return;
+  el.style.left = `${f.x}px`;
+  el.style.top = `${f.y}px`;
+  el.style.width = f.w ? `${Math.min(f.w, innerWidth - 2 * EDGE)}px` : '';
+  const card = el.querySelector<HTMLElement>('.card');
+  if (!card) return;
+  const room = innerHeight - f.y - EDGE;
+  card.style.maxHeight = `${room}px`;
+  card.style.height = f.h && !f.folded ? `${Math.min(f.h, room)}px` : '';
+}
+
+/** Keep every group's headers on screen, whatever the viewport did meanwhile. */
+function fitAll(): void {
+  for (const g of groups()) {
+    // A group stuck to a card on screen goes where the card goes, even off screen.
+    if (g.some((id) => popped[id]!.anchor && anchorRect(popped[id]!.anchor!.to))) continue;
+    const { dx, dy } = clampOffset(g.map(rectOf), 0, 0, { w: innerWidth, h: innerHeight }, EDGE, KEEP);
+    if (!dx && !dy) continue;
+    for (const id of g) {
+      popped[id]!.x = Math.round(popped[id]!.x + dx);
+      popped[id]!.y = Math.round(popped[id]!.y + dy);
+      place(id);
+    }
+  }
+}
+
+function ensureLayer(): HTMLElement {
+  if (layer) return layer;
+  layer = document.createElement('div');
+  layer.className = 'tool-layer';
+  document.body.append(layer);
+  bind(layer);
+  layer.addEventListener('pointerdown', onFloatPointerDown);
+  window.addEventListener('resize', () => {
+    for (const id of openIds()) place(id);
+    layoutAnchored();
+    fitAll();
+  });
+  // The Timer's cards move with the page, a new scramble, the size grips, the dock.
+  window.addEventListener('inphner:layout', scheduleLayout);
+  window.addEventListener('scroll', scheduleLayout, { capture: true, passive: true });
+  window.addEventListener('hashchange', scheduleLayout);
+  return layer;
+}
+
+function paintFloats(): void {
+  const ids = openIds();
+  if (!ids.length && !layer) return;
+  const root = ensureLayer();
+  root.querySelectorAll<HTMLElement>('.tool-float').forEach((el) => {
+    if (!popped[el.dataset.tool as ToolId]) el.remove();
+  });
+  for (const id of ids) {
+    let el = elOf(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'tool-float';
+      el.dataset.tool = id;
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-label', TOOL_NAMES[id]);
+      root.append(el);
+    }
+    el.classList.toggle('folded', !!popped[id]!.folded);
+    el.innerHTML = `${CARDS[id]()}<div class="tool-resize" aria-hidden="true" title="Drag to resize"></div>`;
+    place(id);
+  }
+  layoutAnchored();
+  fitAll();
+  syncDock(); // what's in a docked window may have changed height
+}
+
+function popOut(id: ToolId, from: HTMLElement | null): void {
+  const card = from?.closest<HTMLElement>('.card');
+  const r = card?.getBoundingClientRect();
+  // Cascade new windows so two popped at once don't sit exactly on top of each other.
+  const n = Object.keys(popped).length;
+  // Start where the card was, moved up if that would run it off the bottom.
+  popped[id] = r
+    ? { x: r.left, y: Math.min(r.top, innerHeight - Math.min(r.height, innerHeight * 0.6) - EDGE) }
+    : { x: 24 + n * 28, y: 80 + n * 28 };
+  savePopped();
+  paint();
+}
+
+function popIn(id: ToolId): void {
+  unlink(id);
+  delete popped[id];
+  savePopped();
+  // Off the Tools page a metronome put back would tick on with nothing to stop it.
+  if (id === 'metronome' && !onToolsView) stopMetronome();
+  paint();
+}
+
+function detach(id: ToolId): void {
+  unlink(id);
+  // Nudge it off its neighbours so it is plainly on its own again.
+  const f = popped[id];
+  if (f) { f.x += 16; f.y += 16; delete f.anchor; }
+  savePopped();
+  paint();
+}
+
+/** A window changed size (fold, unfold, resize): keep its group's stack together. */
+function reflowAround(id: ToolId, before: Rect, rest: Map<ToolId, Rect>): void {
+  const ids = [...rest.keys()];
+  const moved = reflow(before, rectOf(id), ids.map((i) => rest.get(i)!));
+  ids.forEach((i, k) => {
+    popped[i]!.x = Math.round(moved[k]!.x);
+    popped[i]!.y = Math.round(moved[k]!.y);
+    place(i);
+    rebase(i);
+  });
+}
+
+function toggleFold(id: ToolId): void {
+  const f = popped[id];
+  if (!f) return;
+  const before = rectOf(id);
+  const rest = new Map(groupOf(id).filter((i) => i !== id).map((i) => [i, rectOf(i)] as const));
+  f.folded = !f.folded;
+  paintFloats();
+  fitScrambleFields();
+  reflowAround(id, before, rest);
+  fitAll();
+  savePopped();
+}
+
+/** Follow one pointer until it lets go. */
+function track(target: HTMLElement, e: PointerEvent, move: (dx: number, dy: number) => void, done: () => void): void {
+  const sx = e.clientX;
+  const sy = e.clientY;
+  try { target.setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
+  const onMove = (m: PointerEvent): void => move(m.clientX - sx, m.clientY - sy);
+  const onUp = (): void => {
+    target.removeEventListener('pointermove', onMove);
+    target.removeEventListener('pointerup', onUp);
+    target.removeEventListener('pointercancel', onUp);
+    done();
+  };
+  target.addEventListener('pointermove', onMove);
+  target.addEventListener('pointerup', onUp);
+  target.addEventListener('pointercancel', onUp);
+}
+
+function onFloatPointerDown(e: PointerEvent): void {
+  const t = e.target as HTMLElement;
+  const el = t.closest<HTMLElement>('.tool-float');
+  const id = el?.dataset.tool as ToolId | undefined;
+  if (!el || !id || !popped[id]) return;
+  // The group you touch comes to the front. A z-index, not a re-append: moving
+  // the node between press and release would swallow the click.
+  for (const g of groupOf(id)) { const w = elOf(g); if (w) w.style.zIndex = String(++front); }
+  if (e.button !== 0) return;
+  if (t.closest('.tool-resize')) startResize(id, el, t, e);
+  else if (t.closest('.card-head') && !t.closest('button, a, input, select, textarea')) startDrag(id, t, e);
+}
+
+type Target = { kind: 'window'; id: ToolId; rect: Rect } | { kind: 'card'; id: 'scramble' | 'preview'; rect: Rect };
+
+/** While dragging: outline the window(s) and what they'd stick to; the divider for the dock. */
+function showTarget(ids: ToolId[], t: (Target & { side: string }) | null): void {
+  document.querySelectorAll('.attach-target').forEach((el) => el.classList.remove('attach-target'));
+  document.querySelector('.scramble-wrap.dock-target')?.classList.remove('dock-target');
+  ids.forEach((i) => elOf(i)?.classList.toggle('attach-on', !!t));
+  if (!t) return;
+  if (t.kind === 'window') { elOf(t.id)?.classList.add('attach-target'); return; }
+  const card = document.querySelector<HTMLElement>(ANCHOR_SEL[t.id]);
+  const wrap = card?.closest<HTMLElement>('.scramble-wrap');
+  const dock = innerWidth > 768 && ((t.id === 'preview' && t.side === 'left') || (t.id === 'scramble' && t.side === 'right'));
+  if (dock && wrap?.querySelector('.scr-grip-preview')) wrap.classList.add('dock-target');
+  else card?.classList.add('attach-target');
+}
+
+function startDrag(id: ToolId, handle: HTMLElement, e: PointerEvent): void {
+  e.preventDefault();
+  if (e.shiftKey && isLinked(id)) { unlink(id); paintFloats(); }
+  const ids = groupOf(id);
+  const view = { w: innerWidth, h: innerHeight };
+  let start: Rect[] = [];
+  let targets: Target[] = [];
+  let lifted = false;
+  // Nothing lets go until the pointer has really moved: a click on the header
+  // must not pull a window off its card or out of the dock.
+  const lift = (): void => {
+    lifted = true;
+    if (ids.some((i) => popped[i]!.anchor)) {
+      ids.forEach((i) => delete popped[i]!.anchor);
+      syncDock(); // leaving the dock closes it
+    }
+    start = ids.map(rectOf);
+    targets = [
+      ...openIds().filter((i) => !ids.includes(i)).map((i): Target => ({ kind: 'window', id: i, rect: rectOf(i) })),
+      ...(['scramble', 'preview'] as const).flatMap((to): Target[] => {
+        const rect = anchorRect(to);
+        return rect ? [{ kind: 'card', id: to, rect }] : [];
+      }),
+    ];
+    ids.forEach((i) => elOf(i)?.classList.add('dragging'));
+  };
+  track(handle, e, (mx, my) => {
+    if (!lifted) {
+      if (Math.hypot(mx, my) < 4) return;
+      lift();
+    }
+    let d = clampOffset(start, mx, my, view, EDGE, KEEP);
+    const moved = start.map((r) => ({ ...r, x: r.x + d.dx, y: r.y + d.dy }));
+    // Near something it can stick to: jump into place and light both up, so
+    // it's plain that letting go now will stick it.
+    const att = findAttach(moved, targets.map((t) => t.rect));
+    const hitTarget = att ? targets[att.index] : undefined;
+    if (att && hitTarget) {
+      const want = { dx: d.dx + att.dx, dy: d.dy + att.dy };
+      d = clampOffset(start, want.dx, want.dy, view, EDGE, KEEP);
+      showTarget(ids, d.dx === want.dx && d.dy === want.dy ? { ...hitTarget, side: att.side } : null);
+    } else {
+      const snap = snapOffset(moved, [], view, EDGE); // just the screen's edges
+      d = clampOffset(start, d.dx + snap.dx, d.dy + snap.dy, view, EDGE, KEEP);
+      showTarget(ids, null);
+    }
+    ids.forEach((i, k) => {
+      popped[i]!.x = Math.round(start[k]!.x + d.dx);
+      popped[i]!.y = Math.round(start[k]!.y + d.dy);
+      place(i);
+    });
+  }, () => {
+    if (!lifted) return;
+    showTarget(ids, null);
+    ids.forEach((i) => elOf(i)?.classList.remove('dragging'));
+    // Dropped against another window: they stick together from now on.
+    for (const i of ids) {
+      for (const o of openIds().filter((x) => !ids.includes(x))) {
+        if (touching(rectOf(i), rectOf(o))) links.push([i, o]);
+      }
+    }
+    // Now one group: if part of it already holds on to a card, the newcomers hold on too.
+    const group = groupOf(id);
+    const held = group.find((i) => popped[i]!.anchor);
+    const a = held ? popped[held]!.anchor! : null;
+    const r = a && anchorRect(a.to);
+    if (a && r) {
+      for (const i of group) popped[i]!.anchor = { ...a, ...offsetFrom(r, popped[i]!, a) };
+    } else stickToCards(group);
+    savePopped();
+    paintFloats(); // the detach buttons, and windows that just docked go into the dock
+  });
+}
+
+function startResize(id: ToolId, el: HTMLElement, handle: HTMLElement, e: PointerEvent): void {
+  e.preventDefault();
+  const f = popped[id]!;
+  const card = el.querySelector<HTMLElement>('.card')!;
+  const before = rectOf(id);
+  const w0 = el.offsetWidth;
+  const h0 = card.offsetHeight;
+  const rest = new Map(groupOf(id).filter((i) => i !== id).map((i) => [i, rectOf(i)] as const));
+  el.classList.add('resizing');
+  track(handle, e, (dx, dy) => {
+    f.w = Math.round(Math.min(Math.max(MIN_W, w0 + dx), innerWidth - f.x - EDGE));
+    f.h = Math.round(Math.min(Math.max(MIN_H, h0 + dy), innerHeight - f.y - EDGE));
+    place(id);
+    fitScrambleFields();
+    reflowAround(id, before, rest);
+    if (f.anchor?.to === 'slot') syncDock();
+  }, () => {
+    el.classList.remove('resizing');
+    rebase(id);
+    fitAll();
+    savePopped();
+  });
+}
+
+/** At boot: bring back whatever was popped out last time. */
+export function initToolPopouts(): void {
+  loadPopped();
+  if (!Object.keys(popped).length) return;
+  loadMemoPrefs();
+  loadSheetPrefs();
+  paintFloats();
+  fitScrambleFields();
 }
 
 function paintHints(): void {
@@ -455,8 +990,9 @@ function lastScramble(): string | null {
   return solves.length ? solves[solves.length - 1]!.scramble ?? null : null;
 }
 
+/** The Timer's scramble (empty until the Timer has shown one this visit). */
 function currentScramble(): string | null {
-  return document.querySelector<HTMLElement>('#scramble-text')?.textContent?.trim() || null;
+  return timerScramble().trim() || null;
 }
 
 function toggleMetronome(): void {
@@ -481,14 +1017,26 @@ function toggleMetronome(): void {
 
 export function renderTools(el: HTMLElement): void {
   host = el;
+  onToolsView = true;
   loadMemoPrefs();
   loadSheetPrefs();
   if (!state.event) state.event = currentSession().event;
   if (!hasScramble(state.event)) state.event = '333';
   paint();
+  bind(el);
+}
 
+const bound = new WeakSet<HTMLElement>();
+
+/** One set of listeners per container: the Tools view and the pop-out layer. */
+function bind(el: HTMLElement): void {
+  if (bound.has(el)) return;
+  bound.add(el);
   onAction(el, (action, t) => {
-    if (action === 'generate') void generate();
+    if (action === 'pop') popOut(t.dataset.tool as ToolId, t);
+    else if (action === 'pop-in') popIn(t.dataset.tool as ToolId);
+    else if (action === 'pop-fold') toggleFold(t.dataset.tool as ToolId);
+    else if (action === 'pop-detach') detach(t.dataset.tool as ToolId); else if (action === 'generate') void generate();
     else if (action === 'copy-scrambles') {
       void navigator.clipboard.writeText(state.scrambles.map((s, i) => `${i + 1}. ${s}`).join('\n'))
         .then(() => toast('Scrambles copied.', { kind: 'good' }), () => toast('The clipboard said no.', { kind: 'bad' }));
@@ -580,7 +1128,8 @@ export function renderTools(el: HTMLElement): void {
   });
 }
 
-/** Leaving the view silences the metronome. */
+/** Leaving the view silences the metronome, unless it was popped out to come along. */
 export function leaveTools(): void {
-  stopMetronome();
+  onToolsView = false;
+  if (!popped.metronome) stopMetronome();
 }

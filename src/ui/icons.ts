@@ -26,6 +26,12 @@ const PATHS = {
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   chevron: '<path d="M9.5 6l6 6-6 6"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  // A box with an arrow leaving it: pop a tool out. Arrow back in: put it back.
+  popout: '<path d="M13.5 4.5h6v6M19.5 4.5l-8 8"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+  popin: '<path d="M19.5 4.5l-8 8M11.5 7v5.5H17"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+  minus: '<path d="M5.5 12h13"/>',
+  // A chain pulled apart: detach a window from the ones it is stuck to.
+  unlink: '<path d="M8.5 11.5l-2 2a3.5 3.5 0 0 0 5 5l2-2M15.5 12.5l2-2a3.5 3.5 0 0 0-5-5l-2 2"/><path d="M4.5 4.5l2.5 2.5M19.5 19.5L17 17"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/>',
   left: '<path d="M14.5 6l-6 6 6 6"/>',

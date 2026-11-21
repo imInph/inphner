@@ -835,18 +835,26 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 .chip.is-bad { color: var(--bad); }
 
 /* ---- Scramble card + preview ---- */
-.scramble-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: var(--gap); align-items: stretch; }
+.scramble-wrap {
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr) var(--preview-w, 232px);
+    gap: var(--gap); align-items: stretch;
+}
 .scramble-wrap.no-preview { grid-template-columns: 1fr; }
+/* A tool window docked between the scramble and the preview gets its own column. */
+.dock-slot { display: none; }
+.scramble-wrap.has-dock .dock-slot { display: block; min-height: var(--dock-h, 1px); }
+.scramble-wrap.has-dock { grid-template-columns: minmax(0, 1fr) var(--dock-w) var(--preview-w, 232px); }
+.scramble-wrap.no-preview.has-dock { grid-template-columns: minmax(0, 1fr) var(--dock-w); }
 .timer-stage.is-first-run .time-block { visibility: hidden; }
 .scramble-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 16px 18px 12px; }
 .scramble-text {
-    font-family: var(--font-mono); font-weight: 560; font-size: clamp(1.05rem, 1.6vw, 1.45rem);
+    font-family: var(--font-mono); font-weight: 560; font-size: calc(clamp(1.05rem, 1.6vw, 1.45rem) * var(--scr-scale, 1));
     line-height: 1.55; word-spacing: .12em; letter-spacing: 0; color: var(--text);
     overflow-wrap: normal; user-select: text; -webkit-user-select: text;
 }
-.scramble-text.is-mid { font-size: clamp(.98rem, 1.3vw, 1.2rem); }
-.scramble-text.is-long { font-size: clamp(.86rem, 1.05vw, 1.02rem); line-height: 1.5; }
-.scramble-text.is-minx { font-size: clamp(.86rem, 1.05vw, 1.02rem); line-height: 1.45; }
+.scramble-text.is-mid { font-size: calc(clamp(.98rem, 1.3vw, 1.2rem) * var(--scr-scale, 1)); }
+.scramble-text.is-long { font-size: calc(clamp(.86rem, 1.05vw, 1.02rem) * var(--scr-scale, 1)); line-height: 1.5; }
+.scramble-text.is-minx { font-size: calc(clamp(.86rem, 1.05vw, 1.02rem) * var(--scr-scale, 1)); line-height: 1.45; }
 .scramble-row { display: block; }
 .scramble-text .mv { white-space: nowrap; display: inline-block; border-radius: 6px; padding: 0 .06em; transition: background-color .15s, color .15s; }
 .scramble-text .mv.is-hl { background: var(--accent-soft); color: var(--accent); }
@@ -878,10 +886,31 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 }
 .preview-card:active { transform: scale(.98); }
 .preview-card .net { width: 100%; height: auto; display: block; }
-.preview-card .twisty-clip { width: 100%; height: 150px; overflow: hidden; border-radius: 14px; pointer-events: none; }
+.preview-card .twisty-clip { width: 100%; height: calc(var(--preview-w, 232px) * .65); overflow: hidden; border-radius: 14px; pointer-events: none; }
 /* Taller than the clip: the player's control bar hangs below and is cropped off. */
-.preview-card twisty-player { width: 100%; height: 202px; display: block; }
+.preview-card twisty-player { width: 100%; height: calc(var(--preview-w, 232px) * .65 + 52px); display: block; }
 .preview-empty { width: 100%; height: 140px; border-radius: 14px; background: var(--fill-1); }
+/* Resize grips (views/scramble-card.ts): a corner grip on the scramble box
+   scales the text, the divider in the gap sets the preview's width. */
+.scramble-card { position: relative; }
+.scr-grip { touch-action: none; -webkit-tap-highlight-color: transparent; }
+.scr-grip-text {
+    position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, var(--text-faint) 50%, var(--text-faint) 58%, transparent 58%,
+        transparent 70%, var(--text-faint) 70%, var(--text-faint) 78%, transparent 78%);
+    border-bottom-right-radius: var(--radius); opacity: .7;
+}
+.scr-grip-preview {
+    position: absolute; top: 0; bottom: 0; width: var(--gap); cursor: ew-resize;
+    right: var(--preview-w, 232px); display: grid; place-items: center;
+}
+.scr-grip-preview::after {
+    content: ""; width: 4px; height: 36px; border-radius: 2px; background: var(--text-faint);
+    opacity: 0; transition: opacity .15s;
+}
+.scramble-wrap.is-sizing .scr-grip-preview::after { opacity: .8; }
+.scramble-wrap.is-sizing, .scramble-wrap.is-sizing * { user-select: none; -webkit-user-select: none; }
+@media (hover: hover) { .scr-grip-preview:hover::after { opacity: .6; } }
 
 /* ---- Event pill + picker ---- */
 .pill {
@@ -1068,7 +1097,7 @@ a.popover-item { text-decoration: none; }
 .fmc-row { display: flex; align-items: center; gap: 8px; width: 100%; }
 .fmc-row .grow { flex: 1; }
 .fmc-panel .error-block { width: 100%; }
-.scramble-text.is-multi { font-size: clamp(.84rem, 1vw, .98rem); line-height: 1.5; max-height: 9.5em; overflow-y: auto; }
+.scramble-text.is-multi { font-size: calc(clamp(.84rem, 1vw, .98rem) * var(--scr-scale, 1)); line-height: 1.5; max-height: 9.5em; overflow-y: auto; }
 
 /* ---- Stats view ---- */
 .stats-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: var(--gap); }
@@ -1250,7 +1279,9 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
    ========================================================================== */
 @media (max-width: 1100px) {
     .app { grid-template-columns: 212px minmax(0, 1fr); }
-    .scramble-wrap { grid-template-columns: minmax(0, 1fr) 210px; }
+    .scramble-wrap { grid-template-columns: minmax(0, 1fr) var(--preview-w, 210px); }
+    .scramble-wrap.has-dock { grid-template-columns: minmax(0, 1fr) var(--dock-w) var(--preview-w, 210px); }
+    .scr-grip-preview { right: var(--preview-w, 210px); }
     .page-title { font-size: 1.8rem; }
 }
 
@@ -1379,10 +1410,12 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
     .solve-table-head, .solve-row { grid-template-columns: 40px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 40px; gap: 6px; }
     body.sheet-locked { overflow: hidden; }
     .pill-label { max-width: 130px; }
-    .scramble-wrap { grid-template-columns: 1fr; gap: 10px; }
+    .scramble-wrap, .scramble-wrap.has-dock, .scramble-wrap.no-preview.has-dock { grid-template-columns: 1fr; gap: 10px; }
+    .scramble-wrap.has-dock .dock-slot { display: none; }
     .scramble-card { padding: 12px 14px 8px; }
-    .scramble-text { font-size: 1.02rem; line-height: 1.5; }
-    .scramble-text.is-long, .scramble-text.is-minx { font-size: .8rem; }
+    .scramble-text { font-size: calc(1.02rem * var(--scr-scale, 1)); line-height: 1.5; }
+    .scramble-text.is-long, .scramble-text.is-minx { font-size: calc(.8rem * var(--scr-scale, 1)); }
+    .scr-grip-preview { display: none; }
     [data-action="toggle-preview"] { display: inline-flex; }
     .preview-card { display: none; min-height: 0; }
     .preview-card .net { max-width: 260px; margin: 0 auto; }
@@ -1446,6 +1479,47 @@ html[data-running] .wallpaper::before { animation-play-state: paused; }
 @keyframes beatPulse { from { transform: scale(1.7); background: var(--accent); } to { transform: scale(1); } }
 
 .flag-url { font-size: .86em; overflow-wrap: anywhere; }
+
+/* Pop-outs (views/tools.ts): any tool card can float above every page. The
+   layer is fixed and lets clicks through; each window is placed with left/top,
+   never a transform (no transform may sit on an ancestor of glass). The fade
+   while a solve runs is on the card itself, so its own blur keeps working. */
+.tool-pop, .tool-float-btns { position: absolute; top: 16px; right: 16px; }
+.tool-float-btns { display: flex; gap: 4px; }
+.tools-grid .card-head { padding-right: 36px; }
+.tool-away p { margin: 0 0 12px; }
+.tool-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.tool-float { position: absolute; width: min(400px, calc(100vw - 16px)); pointer-events: auto; }
+.tool-float > .card {
+    overflow-y: auto; overscroll-behavior: contain; box-shadow: var(--shadow-lg);
+    transition: opacity .18s var(--ease-out);
+}
+/* Stuck to a Timer card it is part of the page, so it looks like the cards around it. */
+.tool-float.anchored > .card { box-shadow: inset 0 1px 0 var(--glass-hi), var(--shadow); }
+.tool-float .card-head { padding-right: 68px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.tool-float.dragging .card-head { cursor: grabbing; }
+.tool-float .card-head:has([data-action="pop-detach"]) { padding-right: 100px; }
+.tool-float .card-head > small { display: none; }
+.tool-float.folded > .card > :not(.card-head) { display: none; }
+.tool-float.folded .card-head { margin-bottom: 0; }
+.tool-float .metronome .bpm { min-width: 0; }
+html[data-focus] .tool-float > .card { opacity: 0; pointer-events: none; }
+html[data-focus] .tool-resize { display: none; }
+/* While dragging: what will stick together is outlined in the accent. */
+.tool-float.attach-on > .card, .tool-float.attach-target > .card, .card.attach-target {
+    box-shadow: 0 0 0 2px var(--accent), var(--shadow-lg);
+}
+.scramble-wrap.dock-target .scr-grip-preview::after { opacity: 1; background: var(--accent); width: 4px; height: 80%; }
+/* The corner grip: two short diagonals, drawn in the dim text colour. */
+.tool-resize {
+    position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none;
+    background:
+        linear-gradient(135deg, transparent 55%, var(--text-faint) 55%, var(--text-faint) 62%, transparent 62%,
+            transparent 72%, var(--text-faint) 72%, var(--text-faint) 79%, transparent 79%);
+    border-bottom-right-radius: var(--radius);
+}
+.tool-float.folded .tool-resize { display: none; }
+.tool-float.resizing, .tool-float.resizing * { user-select: none; -webkit-user-select: none; }
 
 .memo-out { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
 .memo-letters { font-size: 1.05rem; letter-spacing: .06em; margin-top: 2px; }

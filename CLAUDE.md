@@ -281,8 +281,10 @@ in low power mode or under policy, and it needs a secure context (HTTPS or local
   quiet reload per 30 s, so an update that reappears on every load falls back to the toast
   instead of looping. When *another* tab activates an update, this tab's old build has lost its
   chunks, so it reloads too (untouched) or shows the toast.
-- **Testing:** the browser pane cannot register a service worker at all (it fails the same way
-  for a script that doesn't exist), so `src/pwa/sw.test.ts` runs the **built** `public/sw.js` in
+- **Testing:** on the static preview server (`.claude/launch.json` → `localhost:8766`) the browser
+  pane **does** register the service worker (Nov 2026), and then keeps serving the previous build
+  after `npm run build` (look for the "new version is ready" toast). Unregister it and clear
+  `caches` from the console before checking a change. `src/pwa/sw.test.ts` runs the **built** `public/sw.js` in
   `node:vm` with a fake CacheStorage and a fetch that can be switched off: install → warm →
   activate → offline reload. Acceptance item 9 still wants one real offline reload in a browser.
 
@@ -345,6 +347,38 @@ in low power mode or under policy, and it needs a secure context (HTTPS or local
   tested, and an "Experimental" badge on each status pill. Once real hardware has confirmed them,
   drop `experimental` from the `seg()` call in `views/settings-prefs.ts`, the `.pref-note` block
   beside it, and the two badges in `views/timer.ts`.
+
+## Pop-out tool windows (views/tools.ts, ui/snap.ts)
+
+- Every Tools card has a Pop button: the card leaves the grid for a floating window in one
+  `.tool-layer` on `<body>`, so it stays on every page (the metronome keeps ticking; it only stops
+  when it is neither on the Tools page nor popped). Windows drag by the header, resize from the
+  corner grip, fold, and fade with the chrome while a solve runs.
+- They snap to the screen and to each other; dropped GAP apart they **stick** (a `links` list of
+  pairs, groups = connected components) and move as one. Detach button or Shift-drag splits one
+  off. Folding/resizing pushes what's below/beside in its group (`reflow`). `localStorage
+  ['inphner.popped'] = {windows, links}`, restored at boot by `initToolPopouts()`.
+- **They also stick to the Timer's scramble card and preview** (`anchor` on each window: which
+  card, which edges, the offset). A stuck window follows its card on scroll, resize, a new
+  scramble, the size grips (`scramble-card.ts` fires `inphner:layout`) and after a page's viewIn
+  slide (re-measured 500 ms after `hashchange`; `animationend` doesn't reliably fire). Dropped
+  against the *inner* edge of either card, a group goes into the **dock**: `setDock(w, h)` opens a
+  real grid column between scramble and preview and grows the row, so nothing overlaps. Picking a
+  window up (after 4 px of movement, so a header click doesn't) lets go of the card and closes
+  the dock. Off the Timer, or on a phone (no preview, no dock), stuck windows just float.
+- **Attaching is forgiving and shows itself** (owner found exact snapping too hard to use): while
+  dragging, `findAttach()` catches any edge within `REACH` (32 px) that the window really overlaps
+  along (a window *below* a card is never "beside" it), jumps it into place, and outlines both in
+  the accent (`.attach-on` / `.attach-target`); docking lights the divider (`.dock-target`).
+  Nearest wins, within 4 px the longer shared edge. Let go while lit = stuck. The dock is capped
+  at 520 px wide and grows the row by at most 45% of the screen height, so a tall stack never
+  pushes the timer away.
+- Bring-to-front is a z-index bump, **never a re-append**: moving the node between pointerdown and
+  click swallows the click.
+- `ui/snap.ts` is PURE and tested (snap, touching, clamp, reflow, components).
+- The Timer's scramble card has its own grips (`scramble-card.ts`): the corner scales the text
+  (`--scr-scale`, × every scramble font size; `fitText()` still caps it at 5 lines), the divider in
+  the gap sets `--preview-w` (desktop only). Double-click resets. `localStorage['inphner.scrambleSize']`.
 
 ## Stats pipeline
 
