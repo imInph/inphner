@@ -16,7 +16,7 @@ type Vec = [number, number, number];
 interface Sticker { p: Vec; n: Vec; color: Face }
 
 /** Face → [axis index, sign]. */
-const FACE_AXIS: Record<Face, [0 | 1 | 2, 1 | -1]> = {
+export const FACE_AXIS: Record<Face, [0 | 1 | 2, 1 | -1]> = {
   R: [0, 1], L: [0, -1], U: [1, 1], D: [1, -1], F: [2, 1], B: [2, -1],
 };
 
@@ -78,6 +78,22 @@ function applyTurn(state: CubeState, t: Turn): void {
     s.p = rotate(s.p, t.axis, q);
     s.n = rotate(s.n, t.axis, q);
   }
+}
+
+/**
+ * Turn layers `from`…`to` (1 = the face itself) as seen from `face`, by
+ * `quarters` clockwise quarter turns (negative = anticlockwise). Returns the
+ * indexes of the stickers that moved, for the virtual cube's animation.
+ */
+export function turnLayers(state: CubeState, face: Face, from: number, to: number, quarters: number): number[] {
+  const [axis, sign] = FACE_AXIS[face];
+  const moved: number[] = [];
+  state.stickers.forEach((s, i) => {
+    const l = layerOf(s, axis, sign, state.n);
+    if (l >= from && l <= to) moved.push(i);
+  });
+  applyTurn(state, { axis, sign, layers: (l) => l >= from && l <= to, turns: quarters });
+  return moved;
 }
 
 const MOVE_RE = /^(\d*)([URFDLBurfdlbxyzMES])(w?)(\d*)('?)$/;

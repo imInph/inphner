@@ -50,7 +50,7 @@ export function prefsCards(): string {
           <output class="num" data-out="holdMs">${p.holdMs} ms</output></div>`, 'How long space must be held before the time turns green.')}
         ${row('Precision', seg('precision', [[2, '0.01'], [3, '0.001']], p.precision))}
         ${row('While running', seg('live', [['full', 'Full'], ['tenths', '0.1'], ['seconds', 'Seconds'], ['off', 'Hidden']], p.live), '"Hidden" shows only "solving".')}
-        ${row('Input', seg('input', [['keyboard', 'Timer'], ['typing', 'Typing'], ['stackmat', 'Stackmat'], ['smartcube', 'Smart cube']], p.input,
+        ${row('Input', seg('input', [['keyboard', 'Timer'], ['typing', 'Typing'], ['stackmat', 'Stackmat'], ['smartcube', 'Smart cube'], ['virtual', 'Virtual cube']], p.input,
           { experimental: ['stackmat', 'smartcube'] }), 'Stackmat and Smart cube are experimental.')}
         ${p.input === 'stackmat' || p.input === 'smartcube' ? `
         <p class="pref-note"><span class="exp-mark" aria-hidden="true"></span>
@@ -58,6 +58,10 @@ export function prefsCards(): string {
             ? 'The Stackmat decoder is built to the published 1200-baud packet format and has only ever been fed synthesised audio — it has never met a real timer. If it stays silent, the timer\'s signal may differ.'
             : 'Smart cube support speaks GAN\'s Bluetooth protocol through gan-web-bluetooth, but no cube has been paired with it here. inphner reads the cube\'s MAC address when the browser allows it and asks for it otherwise.'}
 </span></p>` : ''}
+        ${p.input === 'virtual' ? `
+        <p class="pref-note"><span>Turn the cube with the keyboard, csTimer's layout: I K for R, J F for U, H G for F,
+          D E for L, S L for D, W O for B. Space scrambles it, and the clock starts on your first turn.
+          The full map is under the cube.</span></p>` : ''}
         ${row('Phases', `<input type="number" min="1" max="10" step="1" value="${p.phases}" data-pref="phases" class="num-input" aria-label="Number of phases">`, 'More than 1 records a split on each press (e.g. 4: cross / F2L / OLL / PLL).')}
         ${switchRow('focusMode', 'Hide everything while timing', p.focusMode)}
         ${switchRow('confirmDelete', 'Confirm before deleting', p.confirmDelete, 'Off by default: the Undo toast is enough.')}

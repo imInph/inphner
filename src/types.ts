@@ -22,7 +22,7 @@ export interface Solve {
   splits?: number[];
   /** Smart cube / FMC solution. */
   solution?: string;
-  source?: 'timer' | 'typing' | 'stackmat' | 'smartcube' | 'import';
+  source?: 'timer' | 'typing' | 'stackmat' | 'smartcube' | 'virtual' | 'import';
   /** Multi-BLD: cubes solved / attempted (timeMs is the time used). */
   multi?: { solved: number; attempted: number };
 }

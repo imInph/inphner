@@ -15,7 +15,7 @@
  * The view's DOM is rendered once per visit; the hot path only touches
  * textContent / className of nodes cached for that render.
  */
-import { TimerEngine, type SolveResult } from '../timer/engine.ts';
+import { inspectionPenalty, TimerEngine, type SolveResult } from '../timer/engine.ts';
 import { formatLive, formatSingle, parseTypedTime, type Penalty } from '../timer/format.ts';
 import { inspectionAlert, unlockAudio } from '../timer/sounds.ts';
 import { connectStackmat, disconnectStackmat, stackmatState, type StackmatState } from '../timer/stackmat-source.ts';
@@ -25,6 +25,9 @@ import {
   smartState, type SmartMove, type SmartState,
 } from '../timer/smartcube.ts';
 import { PhaseTracker } from '../timer/phases.ts';
+import { DEFAULT_HANDS, handsAfter, isRotation, KEY_ROWS, keyMove, moveName, type Hands } from '../timer/virtual.ts';
+import { Cube3D } from '../ui/cube3d.ts';
+import { cubeSize, isSolved } from '../scramble/nxn.ts';
 import { apply, type Cube } from '../tools/cube.ts';
 import { inspectionFor, prefs } from '../prefs.ts';
 import {
@@ -68,7 +71,7 @@ const engine = new TimerEngine(
 
 /** For main.ts: while armed, inspecting or running, no other shortcut may act. */
 export function timerBusy(): boolean {
-  return active && engine.busy;
+  return active && (engine.busy || virt.phase !== 'idle');
 }
 
 /* -------------------------------------------------------------- view state */
@@ -101,15 +104,17 @@ export function renderTimer(el: HTMLElement): void {
   const typing = prefs().input === 'typing';
   const stackmat = prefs().input === 'stackmat';
   const smartCube = prefs().input === 'smartcube';
+  const virtual = prefs().input === 'virtual' && !isFmc();
   const touch = isTouchDevice();
-  const firstRun = currentSolves().length === 0 && !typing && !stackmat && !smartCube && !isFmc();
+  const firstRun = currentSolves().length === 0 && !typing && !stackmat && !smartCube && !virtual && !isFmc();
 
   el.innerHTML = `
     <div class="timer-view">
       <div class="timer-top" data-chrome></div>
-      <div class="timer-stage ${typing ? 'is-typing' : ''} ${isFmc() ? 'is-fmc' : ''}" id="timer-stage">
+      <div class="timer-stage ${typing ? 'is-typing' : ''} ${isFmc() ? 'is-fmc' : ''} ${virtual ? 'is-virtual' : ''}" id="timer-stage">
         ${isFmc() ? '<div class="fmc-host" data-no-timer></div>' : ''}
         <div class="time-block">
+          ${virtual ? '<div class="vcube-host" id="vcube-host"></div>' : ''}
           <div class="time" id="time" aria-hidden="true">${formatSingle(0, prefs().precision)}</div>
           <div class="time-label" id="time-label"></div>
           ${typing ? `
@@ -120,6 +125,9 @@ export function renderTimer(el: HTMLElement): void {
             </form>` : ''}
           ${stackmat ? '<div class="stackmat-pill" id="stackmat-pill" data-no-timer data-chrome></div>' : ''}
           ${smartCube ? '<div class="stackmat-pill" id="smart-pill" data-no-timer data-chrome></div>' : ''}
+          ${virtual ? `<div class="vcube-bar" data-no-timer data-chrome>
+            <span class="vcube-hands" id="vcube-hands"></span>
+            <button type="button" class="btn btn-sm" data-vcube="keys">Key map</button></div>` : ''}
           <div class="post-solve" id="post-solve" data-no-timer data-chrome></div>
         </div>
         ${firstRun ? `
@@ -179,6 +187,10 @@ export function renderTimer(el: HTMLElement): void {
     mountSmart();
     el.addEventListener('click', onSmartClick);
   }
+  if (virtual) {
+    mountVirtual(el.querySelector<HTMLElement>('#vcube-host')!);
+    el.addEventListener('click', onVirtualClick);
+  } else unmountVirtual();
   mountScramble(el.querySelector<HTMLElement>('.timer-top')!, currentSession().event);
 
   wireStage(els.stage);
@@ -258,6 +270,7 @@ export function leaveTimer(): void {
   leaveFmc();
   disconnectStackmat();
   disconnectSmartCube();
+  unmountVirtual();
   cancelAnimationFrame(smart.frame);
   smart.frame = 0;
   smart.running = false;
@@ -302,7 +315,7 @@ function paint(): void {
   else if (hold === 'tap') text = 'release to inspect';
   else if (phase === 'inspecting') text = isTouchDevice() ? 'inspecting · touch and hold to start' : 'inspecting · hold space to start · Esc cancels';
   else if (phase === 'running') text = p.phases > 1 ? `phase ${engine.splits.length + 1} of ${p.phases}` : '';
-  else if (!postSolveId) text = externalInput() ? '' : isTouchDevice() ? 'touch and hold to start' : 'hold space to start';
+  else if (!postSolveId) text = prefs().input === 'virtual' ? virtualIdleText() : externalInput() ? '' : isTouchDevice() ? 'touch and hold to start' : 'hold space to start';
   label.textContent = text;
 
   // Focus mode and the wallpaper pause.
@@ -764,6 +777,7 @@ function onKeyDown(e: KeyboardEvent): void {
 
   if (e.code === 'ControlLeft') ctrlL = true;
   if (e.code === 'ControlRight') ctrlR = true;
+  if (virt.cube && onVirtualKey(e, now)) return;
 
   // Running: any key stops (modifier-only presses don't, except both Ctrls together).
   if (engine.phase === 'running') {
@@ -1197,6 +1211,243 @@ function onSmartClick(e: Event): void {
   } else disconnectSmartCube();
 }
 
+/* ------------------------------------------------------------ virtual cube */
+
+/**
+ * The keyboard cube (layout: timer/virtual.ts, view: ui/cube3d.ts), with
+ * csTimer's flow: the cube waits solved; Space scrambles it and starts
+ * inspection (or just readies it); whole-cube rotations are free; the first
+ * real turn starts the clock and the cube reading solved stops it. Esc before
+ * the first turn cancels, Esc mid-solve records a DNF. Timestamps come from
+ * the keydown handler, like the keyboard timer's; rAF only paints.
+ */
+const virt = {
+  cube: null as Cube3D | null,
+  phase: 'idle' as 'idle' | 'inspecting' | 'ready' | 'running',
+  hands: { ...DEFAULT_HANDS } as Hands,
+  scramble: '',
+  inspectAt: 0,
+  t0: 0,
+  penalty: 0 as Penalty,
+  moves: [] as string[],
+  turns: 0,
+  alerted: 0,
+  frame: 0,
+};
+
+const virtualSize = () => cubeSize(currentSession().event);
+
+function virtualIdleText(): string {
+  if (!virtualSize()) return 'the virtual cube does 2x2 to 7x7';
+  if (isTouchDevice()) return 'the virtual cube needs a keyboard';
+  return 'press space to scramble';
+}
+
+function mountVirtual(host: HTMLElement): void {
+  unmountVirtual();
+  const n = virtualSize();
+  if (!n) {
+    host.hidden = true;
+    return;
+  }
+  virt.cube = new Cube3D(host, n);
+  paintHands();
+}
+
+function unmountVirtual(): void {
+  cancelAnimationFrame(virt.frame);
+  virt.frame = 0;
+  virt.cube?.destroy();
+  virt.cube = null;
+  virt.phase = 'idle';
+  virt.hands = { ...DEFAULT_HANDS };
+}
+
+/** Only shown when a hand isn't at its usual depth. */
+function paintHands(): void {
+  const out = container?.querySelector<HTMLElement>('#vcube-hands');
+  if (!out) return;
+  const { left, right } = virt.hands;
+  out.textContent = left === 1 && right === 1 ? '' : `Hands at depth ${left} · ${right} (Space resets)`;
+}
+
+function setVirtualPhase(phase: typeof virt.phase): void {
+  virt.phase = phase;
+  if (phase === 'running') {
+    root.dataset.running = '';
+    if (prefs().focusMode) root.dataset.focus = '';
+  } else {
+    delete root.dataset.running;
+    delete root.dataset.focus;
+  }
+}
+
+/** True when the key was the cube's. */
+function onVirtualKey(e: KeyboardEvent, now: number): boolean {
+  const cube = virt.cube!;
+  if (!els) return false;
+  if (virt.phase === 'idle') {
+    if (e.code !== 'Space' || e.ctrlKey || e.altKey || e.metaKey) return false;
+    if (document.querySelector('.modal-backdrop') || isTyping(e.target)) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.repeat) startVirtual(now);
+    return true;
+  }
+  // Scrambled or solving: the keyboard belongs to the cube (browser shortcuts still work).
+  if (e.ctrlKey || e.altKey || e.metaKey || isModifierKey(e)) return true;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.key === 'Escape') {
+    abortVirtual(now);
+    return true;
+  }
+  if (e.repeat) return true;
+  const hands = handsAfter(e.code, cube.n, virt.hands);
+  if (hands) {
+    virt.hands = hands;
+    paintHands();
+    return true;
+  }
+  const m = keyMove(e.code, cube.n, virt.hands);
+  if (!m) return true;
+  cube.turn(m);
+  const rotation = isRotation(m, cube.n);
+  virt.moves.push(moveName(m, cube.n));
+  if (virt.phase !== 'running') {
+    if (rotation) return true;
+    virt.t0 = now;
+    virt.penalty = virt.phase === 'inspecting' ? inspectionPenalty(now - virt.inspectAt) : 0;
+    setVirtualPhase('running');
+    delete els.time.dataset.zone;
+    els.time.className = 'time is-running';
+  }
+  if (!rotation) virt.turns++;
+  if (isSolved(cube.state)) finishVirtual(now);
+  else els.label.textContent = `${virt.turns} turn${virt.turns === 1 ? '' : 's'}`;
+  return true;
+}
+
+function startVirtual(now: number): void {
+  if (!els || !virt.cube) return;
+  const scramble = currentScramble();
+  if (!scramble) {
+    els.label.textContent = 'waiting for the scramble…';
+    return;
+  }
+  if (!virt.cube.reset(scramble)) {
+    toast('This scramble doesn’t fit the virtual cube.', { kind: 'bad' });
+    return;
+  }
+  unlockAudio();
+  blurFocus();
+  virt.scramble = scramble;
+  virt.moves = [];
+  virt.turns = 0;
+  virt.hands = { ...DEFAULT_HANDS };
+  paintHands();
+  postSolveId = null;
+  renderPostSolve();
+  els.post.classList.add('is-hidden');
+  els.stage.classList.remove('is-first-run');
+  lastText = '';
+  if (inspectionFor(prefs(), currentSession().event)) {
+    virt.inspectAt = now;
+    virt.alerted = 0;
+    setVirtualPhase('inspecting');
+    els.time.className = 'time is-inspecting';
+    els.label.textContent = 'inspecting · turn to start · Esc cancels';
+  } else {
+    setVirtualPhase('ready');
+    els.time.className = 'time';
+    setTime(formatSingle(0, prefs().precision));
+    els.label.textContent = 'turn to start · Esc cancels';
+  }
+  virtualLoop();
+}
+
+function virtualLoop(): void {
+  if (virt.frame) return;
+  const tick = () => {
+    virt.frame = 0;
+    if (!els || virt.phase === 'idle' || virt.phase === 'ready') return;
+    const now = performance.now();
+    if (virt.phase === 'inspecting') {
+      const elapsed = now - virt.inspectAt;
+      if (elapsed >= 8000 && virt.alerted < 8) { virt.alerted = 8; inspectionAlert(8); }
+      if (elapsed >= 12000 && virt.alerted < 12) { virt.alerted = 12; inspectionAlert(12); }
+      const left = 15000 - elapsed;
+      const zone = left > 7000 ? 'ok' : left > 0 ? 'warn' : 'over';
+      if (els.time.dataset.zone !== zone) els.time.dataset.zone = zone;
+      setTime(left > 0 ? String(Math.ceil(left / 1000)) : left > -2000 ? '+2' : 'DNF');
+    } else {
+      const p = prefs();
+      setTime(p.live === 'off' ? 'solving' : formatLive(now - virt.t0, p.live, p.precision));
+    }
+    virt.frame = requestAnimationFrame(tick);
+  };
+  virt.frame = requestAnimationFrame(tick);
+}
+
+function saveVirtual(timeMs: number, penalty: Penalty): void {
+  const turns = virt.turns;
+  const solve = { timeMs, penalty, scramble: virt.scramble, solution: virt.moves.join(' '), source: 'virtual' as const };
+  setVirtualPhase('idle');
+  cancelAnimationFrame(virt.frame);
+  virt.frame = 0;
+  if (els) setTime(formatSingle(timeMs, prefs().precision));
+  advanceScramble();
+  void addSolve(solve).then((s) => {
+    landSolve(s);
+    if (els && turns) els.label.textContent = `${turns} turns · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
+  });
+}
+
+function finishVirtual(now: number): void {
+  saveVirtual(Math.round(now - virt.t0), virt.penalty);
+}
+
+function abortVirtual(now: number): void {
+  if (virt.phase === 'running') {
+    saveVirtual(Math.round(now - virt.t0), 'DNF');
+    return;
+  }
+  setVirtualPhase('idle');
+  cancelAnimationFrame(virt.frame);
+  virt.frame = 0;
+  virt.cube?.reset();
+  restoreIdleDisplay();
+  paint();
+}
+
+/** csTimer's key map sheet, for this cube and the hands as they are now. */
+function onVirtualClick(e: Event): void {
+  if ((e.target as HTMLElement).closest('[data-vcube="keys"]')) openKeyMap();
+}
+
+function openKeyMap(): void {
+  const n = virt.cube?.n ?? 3;
+  const hand: Record<string, string> = {
+    Digit3: '<', Digit4: '>', Digit7: '<', Digit8: '>',
+  };
+  const cells = KEY_ROWS.flat().map(([code, key]) => {
+    const m = keyMove(code, n, virt.hands);
+    const move = hand[code] ?? (m ? moveName(m, n) : '');
+    return `<div class="${hand[code] ? 'is-hand' : ''}"><span class="k">${esc(key)}</span><span class="m">${esc(move)}</span></div>`;
+  }).join('');
+  openModal({
+    title: 'Virtual cube keys',
+    confirmLabel: 'Done',
+    cancelLabel: '',
+    bodyHtml: `
+      <div class="keymap">${cells}</div>
+      <p class="text-dim" style="margin:12px 0 0">csTimer’s layout. Space scrambles; the clock starts on your first
+      turn (x, y and z don’t count) and stops when the cube is solved. Esc cancels, or gives a DNF once the clock runs.
+      The arrows (3 4 for the left hand, 7 8 for the right) move that hand a layer in or out, for wide and inner-slice
+      turns; Space puts them back.</p>`,
+  });
+}
+
 /* ------------------------------------------------------------- typing mode */
 
 function onTypingSubmit(e: SubmitEvent): void {
@@ -1279,13 +1530,13 @@ export function initTimer(): void {
     if (id === lastSessionId) return;
     lastSessionId = id;
     postSolveId = null;
-    if (active && container && engine.phase === 'idle' && engine.hold === 'none') renderTimer(container);
+    if (active && container && engine.phase === 'idle' && engine.hold === 'none' && virt.phase === 'idle') renderTimer(container);
   });
   // Phone: the stats + solves bottom sheet.
   document.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('[data-sheet-toggle]')) toggleSheet();
   });
   window.addEventListener('inphner:prefs', () => {
-    if (active && container && engine.phase === 'idle' && engine.hold === 'none') renderTimer(container);
+    if (active && container && engine.phase === 'idle' && engine.hold === 'none' && virt.phase === 'idle') renderTimer(container);
   });
 }

@@ -86,7 +86,7 @@ scrambles, the 3x3 solver behind trainer setups, `<twisty-player>`), **Chart.js*
 
 ### Tests cost session budget — be proportionate
 
-There are 170 tests and `npm test` prints a line for each. Running the whole suite after every
+There are 216 tests and `npm test` prints a line for each. Running the whole suite after every
 small edit is what burns a session's usage before the actual work gets done; the same goes for
 writing tests nobody needs. While iterating, run the one file you touched, and filter the output:
 
@@ -348,6 +348,27 @@ in low power mode or under policy, and it needs a secure context (HTTPS or local
   drop `experimental` from the `seg()` call in `views/settings-prefs.ts`, the `.pref-note` block
   beside it, and the two badges in `views/timer.ts`.
 
+## Virtual cube (timer/virtual.ts, ui/cube3d.ts, the "virtual cube" section of views/timer.ts)
+
+- Settings → Timer → Input → **Virtual cube**: a cube turned from the keyboard, 2x2–7x7 (any event
+  `cubeSize()` knows). The key map is **csTimer's**, copied from its source
+  (`src/js/twisty/twistynnn.js`, `generateCubeKeyMapping`), not recalled; `virtual.test.ts` checks
+  the 3x3 labels against csTimer's key map sheet. Keys are read by `e.code` (physical position), so
+  the map sits under the same fingers on any layout.
+- 3 / 4 and 7 / 8 move the left / right hand a layer out / in (csTimer's "hands"), Space resets
+  them. `moveName()` writes each turn in notation `nxn.ts` parses; a test turns every key on every
+  size and depth and compares it with applying that name.
+- csTimer's flow: the cube waits solved; Space applies the scramble and starts inspection (or
+  readies it); x/y/z never start the clock; the first real turn does (timestamp from the keydown);
+  the cube reading solved stops it. Esc cancels before the first turn and is a DNF after it.
+  The solve stores `solution` (every key turn, rotations included), `source: 'virtual'`, and the
+  label shows turns and TPS. While it is scrambled or running, `timerBusy()` is true and every key
+  belongs to the cube.
+- The view is plain CSS 3D, one div per sticker placed by `matrix3d` from the sticker simulator
+  (no cubing.js, no WebGL). State changes at the keypress; the 110 ms turn animation only shows it,
+  and a new turn finishes the previous animation instantly. No turning by touch or drag yet: on a
+  phone it says it needs a keyboard.
+
 ## Pop-out tool windows (views/tools.ts, ui/snap.ts)
 
 - Every Tools card has a Pop button: the card leaves the grid for a floating window in one
@@ -549,7 +570,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 - Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
   Email Routing; Settings → About and the README link it.
 
-## Release status (v1.7.0)
+## Release status (v1.8.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in
@@ -558,7 +579,7 @@ Version label in four places, keep them in step: `package.json`, `VERSION` in `s
 That last one is the one that drifts. It sat at v1.0.0 through four releases because this list
 used to say three places and never named it. Check it on every bump.
 
-**Done:** steps 1–11 (see Build status). 170 unit tests (`npm test`), each step checked in the
+**Done:** steps 1–11 (see Build status). 216 unit tests (`npm test`), each step checked in the
 browser pane at desktop size and 375px.
 
 **Next:**

@@ -6,7 +6,7 @@
  */
 
 export type LiveMode = 'full' | 'tenths' | 'seconds' | 'off';
-export type InputMethod = 'keyboard' | 'typing' | 'stackmat' | 'smartcube';
+export type InputMethod = 'keyboard' | 'typing' | 'stackmat' | 'smartcube' | 'virtual';
 export type AlertMode = 'off' | 'beep' | 'voice';
 
 export interface Prefs {
@@ -103,7 +103,7 @@ export function parsePrefs(raw: string | null): Prefs {
     holdMs: Math.round(num(o.holdMs, d.holdMs, 0, 1000)),
     precision: o.precision === 3 ? 3 : 2,
     live: oneOf(o.live, ['full', 'tenths', 'seconds', 'off'] as const, d.live),
-    input: oneOf(o.input, ['keyboard', 'typing', 'stackmat', 'smartcube'] as const, d.input),
+    input: oneOf(o.input, ['keyboard', 'typing', 'stackmat', 'smartcube', 'virtual'] as const, d.input),
     phases: Math.round(num(o.phases, d.phases, 1, 10)),
     focusMode: bool(o.focusMode, d.focusMode),
     confirmDelete: bool(o.confirmDelete, d.confirmDelete),
