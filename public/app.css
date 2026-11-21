@@ -1557,19 +1557,32 @@ html[data-focus] .tool-resize { display: none; }
 .timer-stage.is-virtual { --time-size: clamp(3rem, 7vw, 5.5rem); }
 /* The cube makes the block tall, so the post-solve row gets its own room
    inside it instead of hanging below (where it landed on the stat strip). */
-.timer-stage.is-virtual .time-block { padding-bottom: 66px; }
+.timer-stage.is-virtual .time-block { padding-bottom: 50px; }
 .timer-stage.is-virtual .post-solve { top: auto; bottom: 4px; }
-.vcube-host { width: min(320px, 82vw, 32vh); width: min(320px, 82vw, 32dvh); aspect-ratio: 1; margin-bottom: 6px; }
-.vcube { width: 100%; height: 100%; display: grid; place-items: center; perspective: 1600px; }
-/* Its own transform is fine: nothing glass sits inside the cube. */
-.vcube-scene {
-    position: relative; width: 0; height: 0; transform-style: preserve-3d;
-    transform: scale(var(--vc-scale, 1)) rotateX(-28deg) rotateY(-30deg);
+.vcube-host { width: min(520px, 86vw, 41vh); width: min(520px, 86vw, 41dvh); aspect-ratio: 1; }
+/* Focus mode hides the sidebar but it keeps its room, so the cube would sit
+   right of the window's middle. timer.ts setVirtualPhase measures the gap and
+   slides it over when Space scrambles it, before the clock runs. */
+.timer-stage.is-virtual .time-block { transition: translate .3s var(--ease-out); }
+/* A phone shares the height with the bottom sheet. */
+@media (max-width: 768px) {
+    .vcube-host { width: min(76vw, 28vh); width: min(76vw, 28dvh); }
 }
-/* 40px = two simulator units (cube3d.ts UNIT); the dark square is the plastic. */
-.vcube-sticker { position: absolute; left: -20px; top: -20px; width: 40px; height: 40px; background: #141414; }
-.vcube-sticker::after { content: ''; position: absolute; inset: 2px; border-radius: 5px; background: var(--c); }
-.vcube-bar { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.vcube { width: 100%; height: 100%; display: grid; place-items: center; }
+/* Its own transform is fine: nothing glass sits inside the cube. Perspective
+   and the camera transform are set by cube3d.ts (csTimer's camera). */
+.vcube-scene { position: relative; width: 0; height: 0; transform-style: preserve-3d; }
+/* csTimer's sticker: 1.8 of a 2-unit cell (36 of 40px), a thin black edge, no
+   plastic body, visible from behind. Colours are csTimer's (cube3d.ts). */
+.vcube-sticker {
+    position: absolute; left: -18px; top: -18px; width: 36px; height: 36px; box-sizing: border-box;
+    background: var(--c); border: 1px solid #000;
+}
+/* In the stage's corner, so it costs the cube no height. */
+.vcube-bar {
+    position: absolute; top: 4px; right: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+}
 .vcube-hands { font-size: .8rem; color: var(--text-dim); }
 
 /* The key map sheet: csTimer's four rows of ten. */

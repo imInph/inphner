@@ -364,10 +364,20 @@ in low power mode or under policy, and it needs a secure context (HTTPS or local
   The solve stores `solution` (every key turn, rotations included), `source: 'virtual'`, and the
   label shows turns and TPS. While it is scrambled or running, `timerBusy()` is true and every key
   belongs to the cube.
-- The view is plain CSS 3D, one div per sticker placed by `matrix3d` from the sticker simulator
-  (no cubing.js, no WebGL). State changes at the keypress; the 110 ms turn animation only shows it,
+- **It must look like csTimer's** (owner's call: the first version, angled with black plastic,
+  "had no similarity"). `ui/cube3d.ts` copies csTimer's camera from its source (twisty.js:
+  vrcOri "6,12" = straight in front, 45° above, 2√2 edges away, aimed 0.075 edges low, 30° FOV)
+  and its stickers (twistynnn.js: 1.8 of every 2 units, thin black edge, double-sided, no
+  plastic, so the far side shows through the gaps) in csTimer's default colours. Only the overall
+  size is ours (shrunk to 0.88 so the near edge stays inside the box).
+- Plain CSS 3D, one div per sticker placed by `matrix3d` from the sticker simulator (no
+  cubing.js, no WebGL). State changes at the keypress; the 110 ms turn animation only shows it,
   and a new turn finishes the previous animation instantly. No turning by touch or drag yet: on a
   phone it says it needs a keyboard.
+- Focus mode starts at **Space**, not the first turn, and `setVirtualPhase()` slides the block by
+  the measured gap to the window's middle (the faded sidebar still takes its room). The slide
+  happens before the clock runs and undoes itself when the solve ends. The Key map button sits in
+  the stage's corner so it costs the cube no height.
 
 ## Pop-out tool windows (views/tools.ts, ui/snap.ts)
 

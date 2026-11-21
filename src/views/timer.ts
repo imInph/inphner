@@ -113,6 +113,9 @@ export function renderTimer(el: HTMLElement): void {
       <div class="timer-top" data-chrome></div>
       <div class="timer-stage ${typing ? 'is-typing' : ''} ${isFmc() ? 'is-fmc' : ''} ${virtual ? 'is-virtual' : ''}" id="timer-stage">
         ${isFmc() ? '<div class="fmc-host" data-no-timer></div>' : ''}
+        ${virtual ? `<div class="vcube-bar" data-no-timer data-chrome>
+          <span class="vcube-hands" id="vcube-hands"></span>
+          <button type="button" class="btn btn-sm" data-vcube="keys">Key map</button></div>` : ''}
         <div class="time-block">
           ${virtual ? '<div class="vcube-host" id="vcube-host"></div>' : ''}
           <div class="time" id="time" aria-hidden="true">${formatSingle(0, prefs().precision)}</div>
@@ -125,9 +128,6 @@ export function renderTimer(el: HTMLElement): void {
             </form>` : ''}
           ${stackmat ? '<div class="stackmat-pill" id="stackmat-pill" data-no-timer data-chrome></div>' : ''}
           ${smartCube ? '<div class="stackmat-pill" id="smart-pill" data-no-timer data-chrome></div>' : ''}
-          ${virtual ? `<div class="vcube-bar" data-no-timer data-chrome>
-            <span class="vcube-hands" id="vcube-hands"></span>
-            <button type="button" class="btn btn-sm" data-vcube="keys">Key map</button></div>` : ''}
           <div class="post-solve" id="post-solve" data-no-timer data-chrome></div>
         </div>
         ${firstRun ? `
@@ -1271,15 +1271,28 @@ function paintHands(): void {
   out.textContent = left === 1 && right === 1 ? '' : `Hands at depth ${left} · ${right} (Space resets)`;
 }
 
+/**
+ * Focus mode starts at Space, not at the first turn: hiding the sidebar lets
+ * the cube slide to the middle of the window, and that must happen before
+ * the clock runs, never during the solve.
+ */
 function setVirtualPhase(phase: typeof virt.phase): void {
   virt.phase = phase;
-  if (phase === 'running') {
-    root.dataset.running = '';
-    if (prefs().focusMode) root.dataset.focus = '';
-  } else {
-    delete root.dataset.running;
-    delete root.dataset.focus;
+  if (phase === 'running') root.dataset.running = '';
+  else delete root.dataset.running;
+  const focus = phase !== 'idle' && prefs().focusMode;
+  if (focus) root.dataset.focus = '';
+  else delete root.dataset.focus;
+  // The sidebar fades but keeps its room: slide the cube to the window's middle.
+  const block = els?.stage.querySelector<HTMLElement>('.time-block');
+  if (!block) return;
+  if (!focus || window.matchMedia('(max-width: 768px)').matches) {
+    block.style.translate = '';
+    return;
   }
+  if (block.style.translate) return;
+  const r = block.getBoundingClientRect();
+  block.style.translate = `${Math.round(document.documentElement.clientWidth / 2 - (r.left + r.width / 2))}px 0`;
 }
 
 /** True when the key was the cube's. */
@@ -1399,7 +1412,7 @@ function saveVirtual(timeMs: number, penalty: Penalty): void {
   advanceScramble();
   void addSolve(solve).then((s) => {
     landSolve(s);
-    if (els && turns) els.label.textContent = `${turns} turns · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
+    if (els && turns) els.label.textContent = `${turns} turn${turns === 1 ? '' : 's'} · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
   });
 }
 

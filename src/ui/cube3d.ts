@@ -3,12 +3,18 @@
  * each placed by a matrix3d built from the sticker simulator (scramble/nxn.ts),
  * so it works for 2x2 to 7x7 with no WebGL and no extra download.
  *
+ * It copies csTimer's virtual cube (src/js/twisty/twisty.js + twistynnn.js):
+ * camera straight in front, 45° above (vrcOri "6,12"), 2√2 cube edges from the
+ * centre, aimed 0.075 edges below it, 30° field of view; stickers 1.8 of every
+ * 2 units with a thin black edge, double-sided, and no plastic body, so the
+ * far side shows through the gaps. Colours are csTimer's defaults.
+ *
  * The state changes the moment a key is pressed (that is what solved-detection
  * and timing read); the animation only shows it. A new turn during an
  * animation finishes the old one at once, so fast typing never queues up.
  */
 import { applyScramble, FACE_AXIS, solvedCube, turnLayers, type CubeState } from '../scramble/nxn.ts';
-import { STICKER } from '../scramble/net.ts';
+import type { Face } from '../scramble/nxn.ts';
 import type { LayerMove } from '../timer/virtual.ts';
 
 type Vec = [number, number, number];
@@ -16,6 +22,14 @@ type Vec = [number, number, number];
 /** Pixels per simulator unit (a sticker is 2 units). The scene is scaled to fit. */
 const UNIT = 20;
 const TURN_MS = 110;
+
+/** csTimer's default cube colours (its "colcube" setting). */
+const COLOURS: Record<Face, string> = { U: '#fff', R: '#f00', F: '#0d0', D: '#ff0', L: '#fa0', B: '#00f' };
+/** csTimer's camera: distance (in cube edges), vertical field of view, elevation, aim offset. */
+const CAMERA_DIST = 2 * Math.SQRT2;
+const FOV = (30 * Math.PI) / 180;
+const ELEVATION = 45;
+const AIM_BELOW = 0.075;
 
 function rotate(v: Vec, axis: number, a: number): Vec {
   const c = Math.cos(a), s = Math.sin(a);
@@ -90,7 +104,7 @@ export class Cube3D {
     this.els = this.state.stickers.map((s) => {
       const d = document.createElement('div');
       d.className = 'vcube-sticker';
-      d.style.setProperty('--c', STICKER[s.color]);
+      d.style.setProperty('--c', COLOURS[s.color]);
       this.scene.append(d);
       return d;
     });
@@ -109,9 +123,16 @@ export class Cube3D {
     const box = this.host.getBoundingClientRect();
     const side = Math.min(box.width, box.height);
     if (!side) return;
-    // The cube's corner-to-corner width on screen is about 1.6 × its edge.
-    const scale = side / (1.65 * 2 * this.n * UNIT);
-    this.scene.style.setProperty('--vc-scale', scale.toFixed(4));
+    // At the camera's distance the square view spans 2·d·tan(fov/2) cube edges.
+    // csTimer's view runs the near top edge right to the frame's border (or a
+    // hair past it), so the picture is shrunk to fit; the camera, and so the
+    // look, stays exactly csTimer's.
+    const edge = (0.88 * side) / (2 * CAMERA_DIST * Math.tan(FOV / 2));
+    const scale = edge / (2 * this.n * UNIT);
+    const cube = this.scene.parentElement!;
+    cube.style.perspective = `${(CAMERA_DIST * edge).toFixed(1)}px`;
+    this.scene.style.transform = `scale(${scale.toFixed(4)}) rotateX(-${ELEVATION}deg) `
+      + `translateY(${(-AIM_BELOW * 2 * this.n * UNIT).toFixed(2)}px)`;
   }
 
   private step = (): void => {
