@@ -340,13 +340,20 @@ in low power mode or under policy, and it needs a secure context (HTTPS or local
   (MIT, lazily imported, ~74 KB chunk with rxjs + aes-js). The protocol is hardware fact, not
   something to reconstruct, which is why the library earns its place. Chrome hides the cube's MAC
   and the key is derived from it, so inphner asks for it once and remembers it per device name.
-  Timing starts on the first move and stops when the cube reads solved; the move stream is saved
+  csTimer's flow: the cube follows the scramble first. `timer/scramble-track.ts` (PURE, tested)
+  lights the next move in the scramble card and, on a wrong turn, puts its inverse in front of
+  what's left (shown orange), so the cube still lands on exactly that scramble; if the cube wasn't
+  solved, or corrections pile up past 4, `timer/scramble-plan.ts` asks cubing.js for a way from
+  the cube as it is. Matching the scramble starts inspection (or readies the clock); the first turn
+  after that starts timing and the cube reading solved stops it. A live 3D cube (`Cube3D`, fed by
+  `setFacelets`/`turnMove`) sits above the time, and "Reset cube" marks the cube in hand solved.
+  Events without a 3x3 scramble keep "the first turn starts". The move stream is saved
   as `solution` and `timer/phases.ts` turns it into cross/F2L/OLL splits.
-- **Both are labelled experimental and untested in the UI** (owner's call): an amber dot on the
-  Settings → Timer → Input buttons, a note under the row naming exactly what was and wasn't
-  tested, and an "Experimental" badge on each status pill. Once real hardware has confirmed them,
-  drop `experimental` from the `seg()` call in `views/settings-prefs.ts`, the `.pref-note` block
-  beside it, and the two badges in `views/timer.ts`.
+- **The Stackmat is labelled experimental and untested in the UI** (owner's call): an amber dot on
+  its Settings → Timer → Input button, a note under the row, and an "Experimental" badge on its
+  status pill. Once a real timer has confirmed it, drop `experimental` from the `seg()` call in
+  `views/settings-prefs.ts`, the `.pref-note` block beside it, and the badge in `views/timer.ts`.
+  The smart cube lost its label in Nov 2026, after the owner used it with a real GAN cube.
 
 ## Virtual cube (timer/virtual.ts, ui/cube3d.ts, the "virtual cube" section of views/timer.ts)
 
@@ -580,7 +587,7 @@ controlled, and re-runs on the `online` event; warming is skipped too.
 - Feedback goes to `CONTACT_EMAIL` (`src/version.ts`), `inph@inphner.com`, forwarded by Cloudflare
   Email Routing; Settings → About and the README link it.
 
-## Release status (v1.8.0)
+## Release status (v1.9.0)
 
 Version label in four places, keep them in step: `package.json`, `VERSION` in `src/version.ts`
 (the console "ready" line and Settings' About card both read it), the sidebar chip in
@@ -599,7 +606,7 @@ browser pane at desktop size and 375px.
    transparency everywhere, and the owner's manual checks below.
 
 **Handed to the owner (manual checks):** a real Stackmat (the decoder has only ever seen
-synthesised audio) and a real GAN cube (including the MAC prompt on macOS Chrome), a printed
+synthesised audio; the GAN cube was confirmed by the owner in Nov 2026), a printed
 scramble sheet, one real offline reload (disconnect, reload, time a
 solve — the pane can't register a service worker, so only the harness covers it), installing it
 as a PWA on the phone and on macOS, real keyboard and touch feel of hold-to-start, voice/beep

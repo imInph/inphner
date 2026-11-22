@@ -858,6 +858,10 @@ html[data-view="timer"], html[data-view="timer"] body { overscroll-behavior: non
 .scramble-row { display: block; }
 .scramble-text .mv { white-space: nowrap; display: inline-block; border-radius: 6px; padding: 0 .06em; transition: background-color .15s, color .15s; }
 .scramble-text .mv.is-hl { background: var(--accent-soft); color: var(--accent); }
+/* A smart cube following the scramble. */
+.scramble-text .mv.is-done { color: var(--text-dim); opacity: .55; }
+.scramble-text .mv.is-current { background: var(--accent-soft); color: var(--accent); }
+.scramble-text .mv.is-fix { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .scramble-note { margin: 4px 0; color: var(--text-dim); font-size: .95rem; }
 .scramble-actions { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-top: auto; }
 .scramble-actions .chip { margin-right: 6px; }
@@ -1554,11 +1558,13 @@ html[data-focus] .tool-resize { display: none; }
 }
 
 /* ---- Virtual cube (Settings → Timer → Input: Virtual cube) ---- */
-.timer-stage.is-virtual { --time-size: clamp(3rem, 7vw, 5.5rem); }
+.timer-stage.is-virtual, .timer-stage.is-smart { --time-size: clamp(3rem, 7vw, 5.5rem); }
 /* The cube makes the block tall, so the post-solve row gets its own room
    inside it instead of hanging below (where it landed on the stat strip). */
-.timer-stage.is-virtual .time-block { padding-bottom: 50px; }
-.timer-stage.is-virtual .post-solve { top: auto; bottom: 4px; }
+.timer-stage.is-virtual .time-block, .timer-stage.is-smart .time-block { padding-bottom: 50px; }
+.timer-stage.is-virtual .post-solve, .timer-stage.is-smart .post-solve { top: auto; bottom: 4px; }
+/* The smart cube's pill shares the block, so its cube is a little smaller. */
+.timer-stage.is-smart .vcube-host { width: min(380px, 70vw, 32vh); width: min(380px, 70vw, 32dvh); }
 .vcube-host { width: min(520px, 86vw, 41vh); width: min(520px, 86vw, 41dvh); aspect-ratio: 1; }
 /* Focus mode hides the sidebar but it keeps its room, so the cube would sit
    right of the window's middle. timer.ts setVirtualPhase measures the gap and
@@ -1567,6 +1573,7 @@ html[data-focus] .tool-resize { display: none; }
 /* A phone shares the height with the bottom sheet. */
 @media (max-width: 768px) {
     .vcube-host { width: min(76vw, 28vh); width: min(76vw, 28dvh); }
+    .timer-stage.is-smart .vcube-host { width: min(56vw, 17vh); width: min(56vw, 17dvh); }
 }
 .vcube { width: 100%; height: 100%; display: grid; place-items: center; }
 /* Its own transform is fine: nothing glass sits inside the cube. Perspective

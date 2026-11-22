@@ -6,9 +6,9 @@ A speedcubing timer, session tracker, stats suite and algorithm trainer: csTimer
 calmer interface, clearer stats and a proper case trainer. Local-first (everything lives in
 IndexedDB in your browser, with optional sync through your own Google Drive), in a frosted "Glass" design.
 
-**Status: v1.8.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
-trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smart cube input
-(both marked experimental until they've met real hardware).
+**Status: v1.9.0.** Everything in the build order is in: timer, scrambles, sessions, stats,
+trainer, import/export, command palette, offline/PWA, Tools, a GAN smart cube, and Stackmat input
+(marked experimental until it has met a real timer).
 
 ## Features
 
@@ -35,9 +35,10 @@ trainer, import/export, command palette, offline/PWA, Tools, and Stackmat / smar
   first-block hints in any cross colour (or all six at once, with what each would cost), each one
   telling you how to hold the cube and drawing the state before and after; a metronome with tap
   tempo; and a BLD memo helper with an editable letter scheme (Speffz by default).
-- **Other timers:** a Stackmat through the microphone, or a GAN smart cube over Bluetooth
-  (experimental) that starts on the first move, stops when the cube is solved, and saves the
-  solution with automatic cross / F2L / OLL splits.
+- **Other timers:** a Stackmat through the microphone (experimental), or a GAN smart cube over
+  Bluetooth that follows you through the scramble the way csTimer does (the next move lit, wrong
+  turns corrected so you still land on the same scramble), starts on your first turn after it,
+  stops when the cube is solved, and saves the solution with automatic cross / F2L / OLL splits.
 - **Virtual cube:** a 2x2 to 7x7 you turn from the keyboard with csTimer's key map. Space
   scrambles it, the first turn starts the clock, and it stops when the cube is solved.
 - **Offline:** installs as an app and runs with no network — the whole build is cached, so you can

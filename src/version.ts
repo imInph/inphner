@@ -11,7 +11,7 @@
  * browser, so that applies to this deployment as much as to anyone's fork.
  */
 
-export const VERSION = '1.8.0';
+export const VERSION = '1.9.0';
 export const SOURCE_URL = 'https://github.com/imInph/inphner';
 
 /** Where feedback and bug reports go (forwarded by Cloudflare Email Routing). */

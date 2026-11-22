@@ -158,3 +158,56 @@ export function cubeFromFacelets(facelets: string): Cube | null {
   }
   return cube;
 }
+
+/** `b` done after `a`: the same composition as turn(), with a whole state as the move. */
+export function compose(a: Cube, b: Cube): Cube {
+  const out: Cube = { ep: Array(12), eo: Array(12), cp: Array(8), co: Array(8) };
+  for (let p = 0; p < 12; p++) {
+    out.ep[p] = a.ep[b.ep[p]!]!;
+    out.eo[p] = (a.eo[b.ep[p]!]! + b.eo[p]!) % 2;
+  }
+  for (let p = 0; p < 8; p++) {
+    out.cp[p] = a.cp[b.cp[p]!]!;
+    out.co[p] = (a.co[b.cp[p]!]! + b.co[p]!) % 3;
+  }
+  return out;
+}
+
+/** The state that undoes `c`: compose(c, invert(c)) is solved. */
+export function invert(c: Cube): Cube {
+  const out: Cube = { ep: Array(12), eo: Array(12), cp: Array(8), co: Array(8) };
+  for (let p = 0; p < 12; p++) {
+    out.ep[c.ep[p]!] = p;
+    out.eo[c.ep[p]!] = c.eo[p]!;
+  }
+  for (let p = 0; p < 8; p++) {
+    out.cp[c.cp[p]!] = p;
+    out.co[c.cp[p]!] = (3 - c.co[p]!) % 3;
+  }
+  return out;
+}
+
+export function sameCube(a: Cube, b: Cube): boolean {
+  const eq = (x: number[], y: number[]) => x.every((v, i) => v === y[i]);
+  return eq(a.ep, b.ep) && eq(a.eo, b.eo) && eq(a.cp, b.cp) && eq(a.co, b.co);
+}
+
+/** The inverse of cubeFromFacelets(): the 54-character string a solver or the 3D view reads. */
+export function faceletsOf(cube: Cube): string {
+  const out = SOLVED_FACELETS.split('');
+  const put = (key: string, colour: Face) => {
+    const cell = CELLS.get(key);
+    if (cell) out[FACELET_FACES.indexOf(cell[0]) * 9 + cell[1] * 3 + cell[2]] = colour;
+  };
+  for (let p = 0; p < 12; p++) {
+    const piece = EDGE_POS[cube.ep[p]!]!;
+    for (let i = 0; i < 2; i++) put(`e${p}:${EDGE_POS[p]![(i + cube.eo[p]!) % 2]}`, piece[i]!);
+  }
+  for (let p = 0; p < 8; p++) {
+    const piece = CORNER_POS[cube.cp[p]!]!;
+    for (let i = 0; i < 3; i++) put(`c${p}:${CORNER_POS[p]![(i + cube.co[p]!) % 3]}`, piece[i]!);
+  }
+  return out.join('');
+}
+
+const SOLVED_FACELETS = FACELET_FACES.map((f) => f.repeat(9)).join('');

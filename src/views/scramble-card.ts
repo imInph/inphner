@@ -22,6 +22,7 @@ import { esc, onAction as delegate } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { openModal } from '../ui/modal.ts';
 import { toast } from '../ui/toast.ts';
+import type { Step } from '../timer/scramble-track.ts';
 
 interface EventScrambles {
   history: string[];
@@ -295,7 +296,26 @@ function sizeClass(): string {
   return '';
 }
 
+/**
+ * A smart cube following the scramble (views/timer.ts): which moves are done,
+ * the one to do now, and the turns that undo a mistake. Only shown while the
+ * scramble it was made for is the one on screen.
+ */
+let steps: { scramble: string; steps: Step[] } | null = null;
+
+export function setScrambleSteps(forScramble: string, next: Step[] | null): void {
+  steps = next ? { scramble: forScramble, steps: next } : null;
+  const box = host?.querySelector<HTMLElement>('.scramble-text');
+  if (!box) return;
+  box.innerHTML = textHtml(currentScramble());
+  fitText();
+}
+
 function textHtml(scramble: string): string {
+  if (steps && steps.scramble === scramble) {
+    return `<div class="scramble-row">${steps.steps.map((st, i) =>
+      `<span class="mv is-${st.state}" data-i="${i}">${esc(st.move)}</span>`).join(' ')}</div>`;
+  }
   const rows = scrambleRows(scramble, event);
   return rows.map((row) => `<div class="scramble-row">${row.map((m, i) => `<span class="mv" data-i="${i}">${esc(m)}</span>`).join(' ')}</div>`).join('');
 }

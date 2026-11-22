@@ -13,7 +13,7 @@
  * and timing read); the animation only shows it. A new turn during an
  * animation finishes the old one at once, so fast typing never queues up.
  */
-import { applyScramble, FACE_AXIS, solvedCube, turnLayers, type CubeState } from '../scramble/nxn.ts';
+import { applyScramble, FACE_AXIS, FACES, solvedCube, stickerCell, turnLayers, type CubeState } from '../scramble/nxn.ts';
 import type { Face } from '../scramble/nxn.ts';
 import type { LayerMove } from '../timer/virtual.ts';
 
@@ -78,6 +78,30 @@ export class Cube3D {
     this.state = ok ? next : solvedCube(this.n);
     this.build();
     return ok;
+  }
+
+  /** A 3x3 shown as a 54-character facelet string (U R F D L B, row by row), no animation. */
+  setFacelets(facelets: string): void {
+    if (this.n !== 3 || facelets.length !== 54) return;
+    this.finish();
+    const next = solvedCube(3);
+    for (const s of next.stickers) {
+      const [face, row, col] = stickerCell(s, 3);
+      s.color = facelets[FACES.indexOf(face) * 9 + row * 3 + col] as Face;
+    }
+    this.state = next;
+    this.build();
+  }
+
+  /** An outer-face turn in notation ("R", "U'", "F2"), animated. */
+  turnMove(move: string): void {
+    const m = /^([URFDLB])(2|')?$/.exec(move);
+    if (!m) return;
+    const face = m[1] as Face;
+    if (m[2] === '2') {
+      this.turn({ face, from: 1, to: 1, dir: 1 });
+      this.turn({ face, from: 1, to: 1, dir: 1 });
+    } else this.turn({ face, from: 1, to: 1, dir: m[2] ? -1 : 1 });
   }
 
   turn(m: LayerMove): void {

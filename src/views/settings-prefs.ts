@@ -51,13 +51,14 @@ export function prefsCards(): string {
         ${row('Precision', seg('precision', [[2, '0.01'], [3, '0.001']], p.precision))}
         ${row('While running', seg('live', [['full', 'Full'], ['tenths', '0.1'], ['seconds', 'Seconds'], ['off', 'Hidden']], p.live), '"Hidden" shows only "solving".')}
         ${row('Input', seg('input', [['keyboard', 'Timer'], ['typing', 'Typing'], ['stackmat', 'Stackmat'], ['smartcube', 'Smart cube'], ['virtual', 'Virtual cube']], p.input,
-          { experimental: ['stackmat', 'smartcube'] }), 'Stackmat and Smart cube are experimental.')}
-        ${p.input === 'stackmat' || p.input === 'smartcube' ? `
+          { experimental: ['stackmat'] }), 'Stackmat is experimental.')}
+        ${p.input === 'stackmat' ? `
         <p class="pref-note"><span class="exp-mark" aria-hidden="true"></span>
-          <span><strong>Experimental and untested.</strong> ${p.input === 'stackmat'
-            ? 'The Stackmat decoder is built to the published 1200-baud packet format and has only ever been fed synthesised audio — it has never met a real timer. If it stays silent, the timer\'s signal may differ.'
-            : 'Smart cube support speaks GAN\'s Bluetooth protocol through gan-web-bluetooth, but no cube has been paired with it here. inphner reads the cube\'s MAC address when the browser allows it and asks for it otherwise.'}
-</span></p>` : ''}
+          <span><strong>Experimental and untested.</strong> The Stackmat decoder is built to the published 1200-baud packet format and has only ever been fed synthesised audio — it has never met a real timer. If it stays silent, the timer's signal may differ.</span></p>` : ''}
+        ${p.input === 'smartcube' ? `
+        <p class="pref-note"><span>GAN cubes over Bluetooth, the way csTimer does it: follow the lit moves to
+          scramble, the clock starts on your first turn after that and stops when the cube is solved.
+          inphner reads the cube's MAC address when the browser allows it and asks for it otherwise.</span></p>` : ''}
         ${p.input === 'virtual' ? `
         <p class="pref-note"><span>Turn the cube with the keyboard, csTimer's layout: I K for R, J F for U, H G for F,
           D E for L, S L for D, W O for B. Space scrambles it, and the clock starts on your first turn.

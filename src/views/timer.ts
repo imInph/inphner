@@ -28,7 +28,9 @@ import { PhaseTracker } from '../timer/phases.ts';
 import { DEFAULT_HANDS, handsAfter, isRotation, KEY_ROWS, keyMove, moveName, type Hands } from '../timer/virtual.ts';
 import { Cube3D } from '../ui/cube3d.ts';
 import { cubeSize, isSolved } from '../scramble/nxn.ts';
-import { apply, type Cube } from '../tools/cube.ts';
+import { apply, cubeFromScramble, faceletsOf, sameCube, solved as solvedPieces, type Cube } from '../tools/cube.ts';
+import { ScrambleTracker, trackable } from '../timer/scramble-track.ts';
+import { planFrom } from '../timer/scramble-plan.ts';
 import { inspectionFor, prefs } from '../prefs.ts';
 import {
   addSolve, currentSession, currentSolves, restoreSolves, solveById, updateSession, updateSolve, type Session, type Solve,
@@ -42,7 +44,7 @@ import { esc, isTyping } from '../ui/dom.ts';
 import { icon } from '../ui/icons.ts';
 import { openModal } from '../ui/modal.ts';
 import { toast } from '../ui/toast.ts';
-import { advanceScramble, currentScramble, mountScramble, unmountScramble } from './scramble-card.ts';
+import { advanceScramble, currentScramble, mountScramble, setScrambleSteps, unmountScramble } from './scramble-card.ts';
 import { flashSolve, fmtStat, listData, renderSolveList } from './solve-list.ts';
 import { deleteWithUndo, openSolveModal } from './solve-modal.ts';
 import { fmtSingle } from './solve-list.ts';
@@ -71,7 +73,7 @@ const engine = new TimerEngine(
 
 /** For main.ts: while armed, inspecting or running, no other shortcut may act. */
 export function timerBusy(): boolean {
-  return active && (engine.busy || virt.phase !== 'idle');
+  return active && (engine.busy || virt.phase !== 'idle' || smart.phase === 'running' || smart.phase === 'inspecting');
 }
 
 /* -------------------------------------------------------------- view state */
@@ -111,13 +113,13 @@ export function renderTimer(el: HTMLElement): void {
   el.innerHTML = `
     <div class="timer-view">
       <div class="timer-top" data-chrome></div>
-      <div class="timer-stage ${typing ? 'is-typing' : ''} ${isFmc() ? 'is-fmc' : ''} ${virtual ? 'is-virtual' : ''}" id="timer-stage">
+      <div class="timer-stage ${typing ? 'is-typing' : ''} ${isFmc() ? 'is-fmc' : ''} ${virtual ? 'is-virtual' : ''} ${smartCube ? 'is-smart' : ''}" id="timer-stage">
         ${isFmc() ? '<div class="fmc-host" data-no-timer></div>' : ''}
         ${virtual ? `<div class="vcube-bar" data-no-timer data-chrome>
           <span class="vcube-hands" id="vcube-hands"></span>
           <button type="button" class="btn btn-sm" data-vcube="keys">Key map</button></div>` : ''}
         <div class="time-block">
-          ${virtual ? '<div class="vcube-host" id="vcube-host"></div>' : ''}
+          ${virtual || smartCube ? '<div class="vcube-host" id="vcube-host"></div>' : ''}
           <div class="time" id="time" aria-hidden="true">${formatSingle(0, prefs().precision)}</div>
           <div class="time-label" id="time-label"></div>
           ${typing ? `
@@ -184,7 +186,7 @@ export function renderTimer(el: HTMLElement): void {
     el.addEventListener('click', onStackmatClick);
   }
   if (smartCube) {
-    mountSmart();
+    mountSmart(el.querySelector<HTMLElement>('#vcube-host'));
     el.addEventListener('click', onSmartClick);
   }
   if (virtual) {
@@ -271,9 +273,7 @@ export function leaveTimer(): void {
   disconnectStackmat();
   disconnectSmartCube();
   unmountVirtual();
-  cancelAnimationFrame(smart.frame);
-  smart.frame = 0;
-  smart.running = false;
+  unmountSmart();
   unmountScramble();
   els = null;
 }
@@ -1046,15 +1046,40 @@ const SMART_LABEL: Record<SmartState, string> = {
   error: 'Could not connect',
 };
 
+/**
+ * csTimer's smart cube flow. The cube waits on the scramble: each turn is
+ * matched against it (timer/scramble-track.ts), the move to do now is lit in
+ * the scramble card, and a wrong turn puts its undo in front of what's left so
+ * the cube still lands on exactly that scramble. If the cube wasn't solved when
+ * the scramble came up, cubing.js works out a way there from where it is.
+ * Once the cube matches the scramble, inspection starts (or the clock waits);
+ * the first turn after that starts the clock and the cube reading solved stops it.
+ */
+type SmartPhase = 'scrambling' | 'inspecting' | 'ready' | 'running';
+
 const smart = {
   cube: null as Cube | null,
-  running: false,
+  phase: 'scrambling' as SmartPhase,
   t0: 0,
   moves: [] as string[],
   battery: -1,
   tracker: new PhaseTracker(),
   frame: 0,
+  view: null as Cube3D | null,
+  /** The scramble being followed, its state, and how far along the cube is. */
+  scramble: '',
+  target: null as Cube | null,
+  track: null as ScrambleTracker | null,
+  /** A solver plan is on its way; turns made meanwhile are kept for it. */
+  planning: 0,
+  since: [] as string[],
+  lastMoveAt: 0,
+  inspectAt: 0,
+  alerted: 0,
+  penalty: 0 as Penalty,
 };
+
+const smartRunning = () => smart.phase === 'running';
 
 function paintSmartPill(state: SmartState, detail?: string): void {
   const pill = container?.querySelector<HTMLElement>('#smart-pill');
@@ -1066,69 +1091,251 @@ function paintSmartPill(state: SmartState, detail?: string): void {
   pill.innerHTML = `
     <span class="stackmat-dot" aria-hidden="true"></span>
     <span class="grow">${esc(detail ?? (state === 'connected' && name ? `${name}${battery}` : SMART_LABEL[state]))}</span>
-    <span class="badge tint-orange" title="Never tested against a real cube">Experimental</span>
-    ${state === 'connected' ? `<button type="button" class="btn btn-sm" data-no-timer data-smart="sync"
-      title="Tell the cube it is solved, if its state has drifted">Sync</button>` : ''}
+    ${state === 'connected' ? `<button type="button" class="btn btn-sm" data-no-timer data-smart="reset"
+      title="Your cube is solved but inphner shows it scrambled? This tells both that it's solved.">Reset cube</button>` : ''}
     <button type="button" class="btn btn-sm" data-no-timer data-smart="${state === 'connected' ? 'disconnect' : 'connect'}">
       ${state === 'connected' ? 'Disconnect' : 'Connect'}</button>`;
 }
 
-function paintSmartTime(): void {
+/** The 3x3 state the current scramble asks for, or null when there's nothing to follow. */
+function smartTarget(scramble: string): Cube | null {
+  const event = currentSession().event;
+  if (!scramble || cubeSize(event) !== 3 || event === '333mbf' || isFmc()) return null;
+  return cubeFromScramble(scramble);
+}
+
+function paintSmartLabel(): void {
+  if (!els || smartRunning()) return;
+  const connected = smartState() === 'connected' && smart.cube;
+  let text = '';
+  if (!connected) text = '';
+  else if (smart.phase === 'inspecting') text = 'inspecting · turn to start';
+  else if (smart.phase === 'ready') text = 'scrambled · turn to start';
+  else if (!smart.target) text = 'turn to start';
+  else if (smart.planning) text = 'working out a way from your cube to this scramble…';
+  else if (smart.track && smart.track.fixes) text = 'wrong turn · do the orange moves to get back on track';
+  else text = 'scramble your cube · the lit move is next';
+  els.label.textContent = text;
+}
+
+function showSmartSteps(): void {
+  setScrambleSteps(smart.scramble, smart.track && smart.phase === 'scrambling' ? smart.track.steps() : null);
+  paintSmartLabel();
+}
+
+/** Start following the scramble on screen. */
+function planSmart(): void {
+  if (smartRunning()) return;
+  cancelAnimationFrame(smart.frame);
   smart.frame = 0;
-  if (!els || !smart.running) return;
-  const p = prefs();
-  const ms = performance.now() - smart.t0;
-  els.time.textContent = p.live === 'off' ? 'solving' : formatLive(ms, p.live, p.precision);
-  smart.frame = requestAnimationFrame(paintSmartTime);
+  smart.phase = 'scrambling';
+  smart.scramble = currentScramble();
+  smart.target = smartTarget(smart.scramble);
+  smart.track = null;
+  smart.planning = 0;
+  if (els) els.time.className = 'time';
+  if (!smart.target || !smart.cube) {
+    showSmartSteps();
+    return;
+  }
+  if (sameCube(smart.cube, solvedPieces()) && trackable(smart.scramble)) {
+    smart.track = new ScrambleTracker(smart.scramble);
+    showSmartSteps();
+    return;
+  }
+  void replanSmart();
+}
+
+/** Ask the solver for a way from the cube as it is to the scramble. */
+async function replanSmart(): Promise<void> {
+  const from = smart.cube;
+  const target = smart.target;
+  if (!from || !target) return;
+  const token = ++smart.planning;
+  smart.since = [];
+  showSmartSteps();
+  let plan: string;
+  try {
+    plan = await planFrom(from, target);
+  } catch {
+    if (token === smart.planning) smart.planning = 0;
+    paintSmartLabel();
+    return;
+  }
+  if (token !== smart.planning || smart.phase !== 'scrambling' || smart.target !== target) return;
+  smart.planning = 0;
+  smart.track = new ScrambleTracker(plan);
+  for (const m of smart.since) smart.track.turn(m);
+  smart.since = [];
+  checkScrambled();
+}
+
+/** After a turn while scrambling: arrived, off the rails, or carry on. */
+function checkScrambled(): void {
+  if (!smart.cube || !smart.target) return;
+  if (sameCube(smart.cube, smart.target)) {
+    smartScrambled();
+    return;
+  }
+  // The queue ran out but the cube isn't there (a turn went unreported), or
+  // the corrections piled up: start again from the cube as it is.
+  if (!smart.planning && smart.track && (smart.track.done || smart.track.fixes > 4)) {
+    void replanSmart();
+    return;
+  }
+  showSmartSteps();
+}
+
+function smartScrambled(): void {
+  if (!els) return;
+  smart.planning = 0;
+  setScrambleSteps(smart.scramble, null);
+  postSolveId = null;
+  renderPostSolve();
+  els.post.classList.add('is-hidden');
+  els.stage.classList.remove('is-first-run');
+  lastText = '';
+  if (inspectionFor(prefs(), currentSession().event)) {
+    unlockAudio();
+    smart.phase = 'inspecting';
+    smart.inspectAt = performance.now();
+    smart.alerted = 0;
+    els.time.className = 'time is-inspecting';
+    smartLoop();
+  } else {
+    smart.phase = 'ready';
+    els.time.className = 'time';
+    setTime(formatSingle(0, prefs().precision));
+  }
+  paintSmartLabel();
+}
+
+function smartLoop(): void {
+  if (smart.frame) return;
+  const tick = () => {
+    smart.frame = 0;
+    if (!els) return;
+    const now = performance.now();
+    if (smart.phase === 'inspecting') {
+      const elapsed = now - smart.inspectAt;
+      if (elapsed >= 8000 && smart.alerted < 8) { smart.alerted = 8; inspectionAlert(8); }
+      if (elapsed >= 12000 && smart.alerted < 12) { smart.alerted = 12; inspectionAlert(12); }
+      const left = 15000 - elapsed;
+      const zone = left > 7000 ? 'ok' : left > 0 ? 'warn' : 'over';
+      if (els.time.dataset.zone !== zone) els.time.dataset.zone = zone;
+      setTime(left > 0 ? String(Math.ceil(left / 1000)) : left > -2000 ? '+2' : 'DNF');
+    } else if (smart.phase === 'running') {
+      const p = prefs();
+      setTime(p.live === 'off' ? 'solving' : formatLive(now - smart.t0, p.live, p.precision));
+    } else return;
+    smart.frame = requestAnimationFrame(tick);
+  };
+  smart.frame = requestAnimationFrame(tick);
+}
+
+function startSmartSolve(at: number): void {
+  if (!els) return;
+  smart.penalty = smart.phase === 'inspecting' ? inspectionPenalty(at - smart.inspectAt) : 0;
+  smart.phase = 'running';
+  smart.t0 = at;
+  smart.moves = [];
+  smart.tracker.reset();
+  setScrambleSteps(smart.scramble, null);
+  delete els.time.dataset.zone;
+  els.time.className = 'time is-running';
+  els.stage.classList.remove('is-first-run');
+  root.dataset.running = '';
+  cancelAnimationFrame(smart.frame);
+  smart.frame = 0;
+  smartLoop();
 }
 
 function finishSmartSolve(elapsed: number): void {
-  smart.running = false;
   cancelAnimationFrame(smart.frame);
   smart.frame = 0;
-  if (!els) return;
+  smart.phase = 'scrambling';
   root.removeAttribute('data-running');
+  if (!els) return;
   const timeMs = Math.round(elapsed);
+  els.time.className = 'time';
   els.time.textContent = formatSingle(timeMs, prefs().precision);
   els.label.textContent = '';
-  const scramble = currentScramble();
+  const scramble = smart.scramble || currentScramble();
   const splits = smart.tracker.splits.length ? [...smart.tracker.splits] : undefined;
   const solution = smart.moves.join(' ');
+  const turns = smart.moves.length;
   smart.moves = [];
   advanceScramble();
-  void addSolve({ timeMs, penalty: 0, scramble, splits, solution, source: 'smartcube' })
-    .then((solve) => landSolve(solve));
+  void addSolve({ timeMs, penalty: smart.penalty, scramble, splits, solution, source: 'smartcube' })
+    .then((solve) => {
+      landSolve(solve);
+      // A locked scramble fires no change: follow it again from the solved cube.
+      if (smart.scramble === currentScramble()) planSmart();
+      if (els && turns && smart.phase === 'scrambling' && !els.label.textContent) {
+        els.label.textContent = `${turns} turns · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
+      }
+    });
 }
 
 function onSmartMove(move: SmartMove): void {
-  if (!els || !smart.cube) return;
+  if (!smart.cube) return;
   smart.cube = apply(smart.cube, move.move);
+  smart.lastMoveAt = performance.now();
+  smart.view?.turnMove(move.move);
+  if (!els) return;
   const at = Number.isFinite(move.at) ? move.at : performance.now();
-  if (!smart.running) {
-    smart.running = true;
-    smart.t0 = at;
-    smart.moves = [];
-    smart.tracker.reset();
-    els.stage.classList.remove('is-first-run');
-    root.dataset.running = '';
-    paintSmartTime();
-  }
+  if (smart.phase === 'scrambling') {
+    if (smart.target) {
+      if (smart.planning) smart.since.push(move.move);
+      else smart.track?.turn(move.move);
+      checkScrambled();
+      return;
+    }
+    startSmartSolve(at);          // nothing to follow (no 3x3 scramble): the first turn starts
+  } else if (smart.phase !== 'running') startSmartSolve(at);
   smart.moves.push(move.move);
   const elapsed = at - smart.t0;
   const done = smart.tracker.update(smart.cube, elapsed);
   if (done.includes(4)) finishSmartSolve(elapsed);
-  else if (els) els.label.textContent = `${smart.moves.length} moves`;
+  else els.label.textContent = `${smart.moves.length} turns`;
 }
 
-/** The cube's own state: trusted while we aren't timing. */
+/**
+ * The cube's own idea of its state (on connecting, or when asked). Believed
+ * unless a solve is running or a turn has just come in (it may be older than it).
+ */
 function onSmartState(cube: Cube, isSolved: boolean): void {
-  if (smart.running) return;
+  if (smartRunning()) return;
+  const first = !smart.cube;
+  if (!first && performance.now() - smart.lastMoveAt < 400) return;
+  if (!first && sameCube(cube, smart.cube!)) return;
   smart.cube = cube;
+  smart.view?.setFacelets(faceletsOf(cube));
   if (isSolved) smart.tracker.reset();
+  planSmart();
+}
+
+/** csTimer's "Reset (mark solved)": the cube in your hand is solved, whatever it said before. */
+function resetSmart(): void {
+  void resetSmartCube().catch(() => {});
+  cancelAnimationFrame(smart.frame);
+  smart.frame = 0;
+  if (smartRunning()) root.removeAttribute('data-running');
+  smart.phase = 'scrambling';
+  smart.cube = solvedPieces();
+  smart.moves = [];
+  smart.tracker.reset();
+  smart.view?.setFacelets(faceletsOf(smart.cube));
+  if (els) {
+    delete els.time.dataset.zone;
+    restoreIdleDisplay();
+  }
+  planSmart();
+  toast('Cube reset to solved.', { kind: 'good' });
 }
 
 const smartHandlers = {
-  onState: paintSmartPill,
+  onState: (state: SmartState, detail?: string) => { paintSmartPill(state, detail); paintSmartLabel(); },
   onMove: onSmartMove,
   onState3: onSmartState,
   onBattery: (level: number) => { smart.battery = level; paintSmartPill(smartState()); },
@@ -1196,19 +1403,37 @@ function openSmartConnect(): void {
   });
 }
 
-function mountSmart(): void {
-  smart.tracker.reset();
+function mountSmart(host: HTMLElement | null): void {
+  smart.view?.destroy();
+  smart.view = host ? new Cube3D(host, 3) : null;
+  if (smart.cube) smart.view?.setFacelets(faceletsOf(smart.cube));
   paintSmartPill(smartState());
   if (!smartCubeSupported()) paintSmartPill('error', 'This browser has no Web Bluetooth.');
+  if (!smartRunning()) planSmart();
+}
+
+function unmountSmart(): void {
+  cancelAnimationFrame(smart.frame);
+  smart.frame = 0;
+  smart.view?.destroy();
+  smart.view = null;
+  smart.phase = 'scrambling';
+  smart.cube = null;
+  smart.track = null;
+  smart.planning = 0;
+  setScrambleSteps('', null);
 }
 
 function onSmartClick(e: Event): void {
   const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-smart]');
   if (!btn) return;
   if (btn.dataset.smart === 'connect') openSmartConnect();
-  else if (btn.dataset.smart === 'sync') {
-    void resetSmartCube().then(() => toast('The cube now calls this state solved.', { kind: 'good' }));
-  } else disconnectSmartCube();
+  else if (btn.dataset.smart === 'reset') resetSmart();
+  else {
+    disconnectSmartCube();
+    unmountSmart();
+    mountSmart(container?.querySelector<HTMLElement>('#vcube-host') ?? null);
+  }
 }
 
 /* ------------------------------------------------------------ virtual cube */
@@ -1528,6 +1753,7 @@ export function initTimer(): void {
   window.addEventListener('inphner:theme', () => { if (active) scheduleMiniTrend(); });
   window.addEventListener('inphner:scramble', () => {
     if (active && isFmc()) mountFmc();
+    if (active && prefs().input === 'smartcube' && smart.phase !== 'running' && smart.scramble !== currentScramble()) planSmart();
   });
   window.addEventListener('inphner:solves', (e) => {
     const sid = (e as CustomEvent<{ sessionId: string }>).detail?.sessionId;

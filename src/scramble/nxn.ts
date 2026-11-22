@@ -151,21 +151,25 @@ export function faceGrids(state: CubeState): Record<Face, Face[][]> {
   const n = state.n;
   const grids = {} as Record<Face, Face[][]>;
   for (const f of FACES) grids[f] = Array.from({ length: n }, () => Array<Face>(n).fill(f));
-  const idx = (v: number) => (v + (n - 1)) / 2;
-  const rev = (v: number) => (n - 1 - v) / 2;
   for (const s of state.stickers) {
-    const [x, y, z] = s.p;
-    const [nx, ny, nz] = s.n;
-    let face: Face, row: number, col: number;
-    if (ny === 1) { face = 'U'; row = idx(z); col = idx(x); }
-    else if (ny === -1) { face = 'D'; row = rev(z); col = idx(x); }
-    else if (nz === 1) { face = 'F'; row = rev(y); col = idx(x); }
-    else if (nz === -1) { face = 'B'; row = rev(y); col = rev(x); }
-    else if (nx === 1) { face = 'R'; row = rev(y); col = rev(z); }
-    else { face = 'L'; row = rev(y); col = idx(z); }
+    const [face, row, col] = stickerCell(s, n);
     grids[face][row]![col] = s.color;
   }
   return grids;
+}
+
+/** Where a sticker sits in faceGrids(): face, row, column. */
+export function stickerCell(s: { p: number[]; n: number[] }, n: number): [Face, number, number] {
+  const idx = (v: number) => (v + (n - 1)) / 2;
+  const rev = (v: number) => (n - 1 - v) / 2;
+  const [x, y, z] = s.p as Vec;
+  const [nx, ny, nz] = s.n as Vec;
+  if (ny === 1) return ['U', idx(z), idx(x)];
+  if (ny === -1) return ['D', rev(z), idx(x)];
+  if (nz === 1) return ['F', rev(y), idx(x)];
+  if (nz === -1) return ['B', rev(y), rev(x)];
+  if (nx === 1) return ['R', rev(y), rev(z)];
+  return ['L', rev(y), idx(z)];
 }
 
 export function isSolved(state: CubeState): boolean {
