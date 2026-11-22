@@ -29,7 +29,7 @@ import { DEFAULT_HANDS, handsAfter, isRotation, KEY_ROWS, keyMove, moveName, typ
 import { Cube3D } from '../ui/cube3d.ts';
 import { cubeSize, isSolved } from '../scramble/nxn.ts';
 import { apply, cubeFromScramble, faceletsOf, sameCube, solved as solvedPieces, type Cube } from '../tools/cube.ts';
-import { ScrambleTracker, trackable } from '../timer/scramble-track.ts';
+import { joinHalfTurns, ScrambleTracker, trackable, turnCount } from '../timer/scramble-track.ts';
 import { planFrom } from '../timer/scramble-plan.ts';
 import { inspectionFor, prefs } from '../prefs.ts';
 import {
@@ -778,6 +778,12 @@ function onKeyDown(e: KeyboardEvent): void {
   if (e.code === 'ControlLeft') ctrlL = true;
   if (e.code === 'ControlRight') ctrlR = true;
   if (virt.cube && onVirtualKey(e, now)) return;
+  if (smartRunning() && e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    abortSmart(now);
+    return;
+  }
 
   // Running: any key stops (modifier-only presses don't, except both Ctrls together).
   if (engine.phase === 'running') {
@@ -1077,6 +1083,8 @@ const smart = {
   inspectAt: 0,
   alerted: 0,
   penalty: 0 as Penalty,
+  /** "42 turns · 5.31 tps" from the last solve, shown until the next scramble starts. */
+  lastResult: '',
 };
 
 const smartRunning = () => smart.phase === 'running';
@@ -1114,6 +1122,7 @@ function paintSmartLabel(): void {
   else if (!smart.target) text = 'turn to start';
   else if (smart.planning) text = 'working out a way from your cube to this scramble…';
   else if (smart.track && smart.track.fixes) text = 'wrong turn · do the orange moves to get back on track';
+  else if (smart.lastResult) text = smart.lastResult;
   else text = 'scramble your cube · the lit move is next';
   els.label.textContent = text;
 }
@@ -1250,7 +1259,8 @@ function startSmartSolve(at: number): void {
   smartLoop();
 }
 
-function finishSmartSolve(elapsed: number): void {
+/** `penalty` is DNF when Esc gave up on the solve; otherwise inspection decides. */
+function finishSmartSolve(elapsed: number, penalty: Penalty = smart.penalty): void {
   cancelAnimationFrame(smart.frame);
   smart.frame = 0;
   smart.phase = 'scrambling';
@@ -1259,21 +1269,20 @@ function finishSmartSolve(elapsed: number): void {
   const timeMs = Math.round(elapsed);
   els.time.className = 'time';
   els.time.textContent = formatSingle(timeMs, prefs().precision);
-  els.label.textContent = '';
   const scramble = smart.scramble || currentScramble();
   const splits = smart.tracker.splits.length ? [...smart.tracker.splits] : undefined;
-  const solution = smart.moves.join(' ');
-  const turns = smart.moves.length;
+  const solution = joinHalfTurns(smart.moves).join(' ');
+  const turns = turnCount(smart.moves);
   smart.moves = [];
+  smart.lastResult = penalty === 'DNF' ? `DNF · ${turns} turns` : turnsAndTps(turns, timeMs);
+  els.label.textContent = smart.lastResult;
   advanceScramble();
-  void addSolve({ timeMs, penalty: smart.penalty, scramble, splits, solution, source: 'smartcube' })
+  void addSolve({ timeMs, penalty, scramble, splits, solution, source: 'smartcube' })
     .then((solve) => {
       landSolve(solve);
-      // A locked scramble fires no change: follow it again from the solved cube.
+      // A locked scramble fires no change: follow it again from the cube as it is.
       if (smart.scramble === currentScramble()) planSmart();
-      if (els && turns && smart.phase === 'scrambling' && !els.label.textContent) {
-        els.label.textContent = `${turns} turns · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
-      }
+      else paintSmartLabel();
     });
 }
 
@@ -1286,6 +1295,7 @@ function onSmartMove(move: SmartMove): void {
   const at = Number.isFinite(move.at) ? move.at : performance.now();
   if (smart.phase === 'scrambling') {
     if (smart.target) {
+      smart.lastResult = '';         // scrambling again: the hint takes the label back
       if (smart.planning) smart.since.push(move.move);
       else smart.track?.turn(move.move);
       checkScrambled();
@@ -1297,7 +1307,17 @@ function onSmartMove(move: SmartMove): void {
   const elapsed = at - smart.t0;
   const done = smart.tracker.update(smart.cube, elapsed);
   if (done.includes(4)) finishSmartSolve(elapsed);
-  else els.label.textContent = `${smart.moves.length} turns`;
+  else els.label.textContent = `${turnCount(smart.moves)} turns`;
+}
+
+/** Esc mid-solve gives up on it: saved as a DNF, like the keyboard and virtual cube. */
+function abortSmart(now: number): void {
+  finishSmartSolve(now - smart.t0, 'DNF');
+}
+
+function turnsAndTps(turns: number, timeMs: number): string {
+  if (!turns) return '';
+  return `${turns} turn${turns === 1 ? '' : 's'} · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
 }
 
 /**
@@ -1560,7 +1580,7 @@ function onVirtualKey(e: KeyboardEvent, now: number): boolean {
     delete els.time.dataset.zone;
     els.time.className = 'time is-running';
   }
-  if (!rotation) virt.turns++;
+  if (!rotation) virt.turns = turnCount(virt.moves);
   if (isSolved(cube.state)) finishVirtual(now);
   else els.label.textContent = `${virt.turns} turn${virt.turns === 1 ? '' : 's'}`;
   return true;
@@ -1629,7 +1649,7 @@ function virtualLoop(): void {
 
 function saveVirtual(timeMs: number, penalty: Penalty): void {
   const turns = virt.turns;
-  const solve = { timeMs, penalty, scramble: virt.scramble, solution: virt.moves.join(' '), source: 'virtual' as const };
+  const solve = { timeMs, penalty, scramble: virt.scramble, solution: joinHalfTurns(virt.moves).join(' '), source: 'virtual' as const };
   setVirtualPhase('idle');
   cancelAnimationFrame(virt.frame);
   virt.frame = 0;
@@ -1637,7 +1657,7 @@ function saveVirtual(timeMs: number, penalty: Penalty): void {
   advanceScramble();
   void addSolve(solve).then((s) => {
     landSolve(s);
-    if (els && turns) els.label.textContent = `${turns} turn${turns === 1 ? '' : 's'} · ${(turns / Math.max(timeMs / 1000, 0.01)).toFixed(2)} tps`;
+    if (els && turns) els.label.textContent = turnsAndTps(turns, timeMs);
   });
 }
 

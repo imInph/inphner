@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ScrambleTracker, trackable } from './scramble-track.ts';
+import { joinHalfTurns, ScrambleTracker, trackable, turnCount } from './scramble-track.ts';
 import { apply, cubeFromScramble, sameCube, solved } from '../tools/cube.ts';
 import { randomMoves } from '../scramble/moves.ts';
 
@@ -52,4 +52,10 @@ test('only plain face turns can be tracked', () => {
   assert.ok(trackable("R U2 F'"));
   assert.ok(!trackable('R Uw'));
   assert.ok(!trackable(''));
+});
+
+test('a half turn reported as two quarters counts once', () => {
+  assert.deepEqual(joinHalfTurns(['R', 'R', "U'", "U'", 'F', "F'", 'L', 'L', 'L', 'Rw', 'Rw', '2R', '2R']),
+    ['R2', 'U2', 'F', "F'", 'L2', 'L', 'Rw2', '2R2']);
+  assert.equal(turnCount(['x', 'x', 'R', 'R', 'U']), 2);
 });

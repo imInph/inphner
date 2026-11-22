@@ -88,3 +88,24 @@ export class ScrambleTracker {
     return out;
   }
 }
+
+/**
+ * Turns as a solver writes them. A smart cube (and the virtual cube's keys)
+ * reports a half turn as two quarter turns; two identical quarter turns in a
+ * row are one half turn: R R → R2, U' U' → U2, Rw Rw → Rw2. A third stays
+ * separate (R R R → R2 R), and R R' is two real turns, so it stays.
+ */
+export function joinHalfTurns(moves: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const m of moves) {
+    const prev = out[out.length - 1];
+    if (prev === m && !/2'?$/.test(m)) out[out.length - 1] = m.replace(/'$/, '') + '2';
+    else out.push(m);
+  }
+  return out;
+}
+
+/** How many turns a solution has (half turns count once; x, y, z rotations don't count). */
+export function turnCount(moves: readonly string[]): number {
+  return joinHalfTurns(moves).filter((m) => !/^[xyz]/.test(m)).length;
+}
